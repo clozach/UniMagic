@@ -98,7 +98,7 @@ struct ReleaseSettingsView: View {
         }.disabled(!release.publisher.presentation.isEnabled).help(
           release.publisher.presentation.help)
       }
-    }.frame(height: 185, alignment: .top).padding(12).background(
+    }.frame(maxWidth: .infinity, alignment: .leading).frame(height: 185, alignment: .top).padding(12).background(
       Color.accentColor.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
   }
   @ViewBuilder private func action(_ row: UpdateMenuRow) -> some View {

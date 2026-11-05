@@ -38,11 +38,11 @@ enum ContentIdentity {
         for case let file as URL in iterator {
             let relative = String(file.path.dropFirst(root.path.count + 1))
             if (PublisherProduct.current.excludePrefixes ?? []).contains(where: { relative == $0 || relative.hasPrefix($0.hasSuffix("/") ? $0 : $0 + "/") }) {
-                iterator.skipDescendants(); continue
+                if isDirectory(file) { iterator.skipDescendants() }; continue
             }
             let normalized = file
             guard normalized.path.hasPrefix(root.path + "/") else { throw IdentityError.incomplete }
-            if excludingBuild && (relative == ".build" || relative.hasPrefix(".build/")) { iterator.skipDescendants(); continue }
+            if excludingBuild && (relative == ".build" || relative.hasPrefix(".build/")) { if isDirectory(file) { iterator.skipDescendants() }; continue }
             let values = try file.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
             if values.isSymbolicLink == true { throw IdentityError.symlink(relative) }
             if values.isRegularFile == true { result[relative] = normalized }
@@ -79,7 +79,7 @@ enum ContentIdentity {
                     let tail = String(file.path.dropFirst(source.path.count + 1))
                     let virtual = relative + "/" + tail
                     if (PublisherProduct.current.excludePrefixes ?? []).contains(where: { virtual == $0 || virtual.hasPrefix($0.hasSuffix("/") ? $0 : $0 + "/") }) {
-                        mapped.skipDescendants(); continue
+                        if isDirectory(file) { mapped.skipDescendants() }; continue
                     }
                     let attributes = try file.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
                     guard attributes.isSymbolicLink != true else { throw IdentityError.symlink(file.path) }
@@ -90,6 +90,13 @@ enum ContentIdentity {
             }
         }
         return result
+    }
+
+    /// NSDirectoryEnumerator.skipDescendants() after a regular file can skip a
+    /// later sibling directory. lstat also keeps excluded symlinks unresolved.
+    private static func isDirectory(_ file: URL) -> Bool {
+        var info = stat()
+        return lstat(file.path, &info) == 0 && (info.st_mode & S_IFMT) == S_IFDIR
     }
 
     static func local(_ root: URL) throws -> String {

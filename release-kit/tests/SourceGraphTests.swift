@@ -16,6 +16,12 @@ struct SourceGraphTests {
         }
         try write("{}", source.appendingPathComponent("release-product.json"))
         try write("original source", source.appendingPathComponent("App.swift"))
+        // Excluded REGULAR entries must not make DirectoryEnumerator skip a
+        // later required directory; exercise native enumerator ordering.
+        for index in 0..<40 {
+            try write("derived",source.appendingPathComponent("skip-\(index).js"))
+            try write("required",source.appendingPathComponent("required-\(index)/input.txt"))
+        }
         try write("preserved keyword", seeds.appendingPathComponent("words.json"))
         try write("private fixture", seeds.appendingPathComponent("private.json"))
         try write("preserved category", temporary.appendingPathComponent("research/inventory.json"))
@@ -25,10 +31,11 @@ struct SourceGraphTests {
         product.identityAlgorithm = "unimagic-content-v1"
         product.identityExact = ["release-product.json"]
         product.identityPrefixes = ["seeds/", "reference/"]
-        product.excludePrefixes = ["node_modules", "macos/build", "seeds/private.json"]
+        product.excludePrefixes = ["node_modules", "macos/build", "seeds/private.json"] + (0..<40).map { "skip-\($0).js" }
         product.sourceMappings = ["seeds": "../seeds", "reference/inventory.json": "../research/inventory.json"]
         PublisherProduct.current = product
         let effective = try ContentIdentity.files(at: source)
+        precondition((0..<40).allSatisfy { effective["required-\($0)/input.txt"] != nil }, "Excluded files never skip required sibling directories")
         precondition(effective["seeds/private.json"] == nil, "Exclusions also cover mapped graph")
         precondition(effective["node_modules"] == nil, "Exclude symlink before resolving it")
         precondition(effective["seeds/words.json"]?.lastPathComponent == "words.json", "Virtual seed path points at original")
@@ -47,6 +54,6 @@ struct SourceGraphTests {
         try fm.createSymbolicLink(at: seeds.appendingPathComponent("leak"), withDestinationURL: source.appendingPathComponent("App.swift"))
         do { _ = try ContentIdentity.files(at: source); fatalError("Mapping must refuse symlinks") }
         catch IdentityError.symlink { }
-        print("Shared source graph tests passed: 7 assertions")
+        print("Shared source graph tests passed: 8 assertions")
     }
 }

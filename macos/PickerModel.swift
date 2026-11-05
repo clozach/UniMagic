@@ -32,8 +32,14 @@ import SwiftUI
   init() {
     do {
       bridge = try DesktopBridge()
+      let initialGeneration = generation
+      let initialInteraction = detailGeneration
       Task {
         await refreshCategories()
+        // A caller may have searched or selected while the initial read was pending.
+        guard generation == initialGeneration, detailGeneration == initialInteraction else {
+          return
+        }
         reload()
       }
     } catch { message = error.localizedDescription }
@@ -43,19 +49,33 @@ import SwiftUI
       message = error.localizedDescription
     }
   }
-  func reload() {
+  func refreshForPresentation() async {
+    let expectedGeneration = generation
+    let expectedInteraction = detailGeneration
+    await refreshCategories()
+    guard generation == expectedGeneration, detailGeneration == expectedInteraction else { return }
+    reload(preservingSelection: true)
+  }
+  func reload(preservingSelection: Bool = false) {
     guard let bridge else { return }
     detail = nil
     detailGeneration += 1
     generation += 1
     let ticket = generation
+    let interaction = detailGeneration
     Task {
       do {
         let page = try await bridge.request(
           "list", ["query": query, "category": category], as: GlyphPage.self)
         guard ticket == generation else { return }
+        // A presentation refresh must not reset an interaction made after it started.
+        guard !preservingSelection || interaction == detailGeneration else { return }
+        let retained =
+          preservingSelection
+          ? selected.flatMap { id in page.records.contains(where: { $0.id == id }) ? id : nil }
+          : nil
         glyphs = page.records
-        selected = glyphs.first?.id
+        selected = retained ?? glyphs.first?.id
         nextOffset = page.nextOffset
         historyCursor = page.cursor
         message = "\(page.total) " + (page.total == 1 ? "glyph" : "glyphs")

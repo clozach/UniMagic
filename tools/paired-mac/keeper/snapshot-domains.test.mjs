@@ -33,22 +33,22 @@ test('failed or malformed container enumeration is never treated as an empty sto
  await assert.rejects(snapshotExtraDomains('/fixture',shared,async()=>({result:{}})),/enumeration missing/);
 });
 test('first shared upgrade preserves known installed stores before any new-version migration',async t=>{
- const previousRelease={build:'11',version:'1.1.0',installedURL:'old'},seen=[];let installed={bundleVersion:'11',version:'1.1.0',url:'old'};
+ const previousRelease={build:'11',version:'1.1.0',installedURL:'old'},seen=[];let installed={bundleIdentifier:'com.clozach.amaanah.alerts',bundleVersion:'11',version:'1.1.0',url:'old'};
  await installAndVerify('/new.app',shared,folder(t),{allowUpgrade:true,previousRelease,
   installedApp:async()=>installed,snapshotSaved:async(_folder,io)=>{seen.push(io.snapshotRelease);return {history:'same'};},
-  device:async()=>{installed={bundleVersion:'12',version:'1.1.0',url:'new'};return{};},
+  device:async()=>{installed={bundleIdentifier:'com.clozach.amaanah.alerts',bundleVersion:'12',version:'1.1.0',url:'new'};return{};},
  });
  assert.deepEqual(seen,[previousRelease,previousRelease]);
 });
 test('unknown or stale shared-upgrade baseline stops before touching the installer',async t=>{
- const base={allowUpgrade:true,installedApp:async()=>({bundleVersion:'11',version:'1.1.0',url:'old'}),device:async()=>{throw Error('Must not install');}};
+ const base={allowUpgrade:true,installedApp:async()=>({bundleIdentifier:'com.clozach.amaanah.alerts',bundleVersion:'11',version:'1.1.0',url:'old'}),device:async()=>{throw Error('Must not install');}};
  await assert.rejects(installAndVerify('/new.app',shared,folder(t),base),/verified installed preservation baseline/);
  await assert.rejects(installAndVerify('/new.app',shared,folder(t),{...base,previousRelease:{build:'10',version:'1.1.0',installedURL:'old'}}),/preservation baseline/);
 });
 for(const changed of ['keyboard/support/UniMagic/LocalPersonalization/personalization-v1.sqlite','shared/support/UniMagic/personalization-v1.sqlite'])test(`real changed ${changed.split('/')[0]} history is detected`,async t=>{
  const root=folder(t);let reads=0;
  await assert.rejects(installAndVerify('/new.app',shared,root,{
-  installedApp:async()=>({bundleVersion:'12',version:'1.1.0',url:'original'}),device:async()=>({}),
+  installedApp:async()=>({bundleIdentifier:'com.clozach.amaanah.alerts',bundleVersion:'12',version:'1.1.0',url:'original'}),device:async()=>({}),
   snapshotSaved:async destination=>{const file=join(destination,changed);mkdirSync(dirname(file),{recursive:true});writeFileSync(file,++reads===1?'old history':'lost history');return{[changed]:reads===1?'before':'after'};},
  }),/Saved data changed/);
 });

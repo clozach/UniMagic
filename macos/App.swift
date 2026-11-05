@@ -79,8 +79,7 @@ import SwiftUI
     window.makeKeyAndOrderFront(nil)
     if refresh {
       Task {
-        await model.refreshCategories()
-        model.reload()
+        await model.refreshForPresentation()
       }
     }
   }

@@ -30,13 +30,13 @@ test('off consent never authenticates, signs or installs a candidate',async()=>{
 
 test('consent is re-read at the install boundary and changed/off choices stop installation',async()=>{
  const home=temp();let reads=0,installed=0;
- const io={lock,readConsent:async()=>({kind:'read',policy:policy(++reads===1)}),payload:async()=>({manifest:{build:'2',version:'1.0.0'},app:'unsigned'}),installedApp:async()=>({bundleVersion:'1',version:'1.0.0'}),sign:async()=>({app:'signed'}),capture:async()=>({app:'frozen',build:'2',version:'1.0.0'}),install:async(a,b,c,options)=>{await options.beforeInstall();installed++;return {};}};
+ const io={lock,readConsent:async()=>({kind:'read',policy:policy(++reads===1)}),payload:async()=>({manifest:{build:'2',version:'1.0.0'},app:'unsigned'}),installedApp:async()=>({bundleIdentifier:'com.clozach.amaanah.alerts',bundleVersion:'1',version:'1.0.0'}),sign:async()=>({app:'signed'}),capture:async()=>({app:'frozen',build:'2',version:'1.0.0'}),install:async(a,b,c,options)=>{await options.beforeInstall();installed++;return {};}};
  await assert.rejects(deliverPublishedProduct({...UNIMAGIC_PRODUCT,home},{},io),/off/);assert.equal(reads,2);assert.equal(installed,0);
 });
 
 test('bootstrap requires explicit flag; performs installed version readback without pretending to preserve nonexistent files',async()=>{
  let installed=false,snapshots=0;
- const io={bootstrap:true,installedApp:async()=>installed?{bundleVersion:'1',version:'1.0.0',url:'new'}:null,device:async()=>{installed=true;return {ok:true};},snapshotSaved:async()=>{snapshots++;}};
+ const io={bootstrap:true,installedApp:async()=>installed?{bundleIdentifier:'com.clozach.amaanah.alerts',bundleVersion:'1',version:'1.0.0',url:'new'}:null,device:async()=>{installed=true;return {ok:true};},snapshotSaved:async()=>{snapshots++;}};
  const result=await installAndVerify('app',{build:'1',version:'1.0.0'},temp(),io);assert.equal(result.bootstrap,true);assert.equal(snapshots,0);
  await assert.rejects(installAndVerify('app',{build:'0',version:'1.0.0'},temp(),{...io,bootstrap:false}),/identity/);
 });

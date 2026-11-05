@@ -104,7 +104,7 @@ test('snapshot changes after hashing fail instead of producing stale verificatio
 
 for (const allowUpgrade of [false, true]) test((allowUpgrade ? 'managed upgrade' : 'renewal') + ' uses retained real snapshots and returns the comparison receipt', async t => {
   const f = fixture(t), calls = [], release = {build: '11', version: '1.1.0', installedURL: 'old'};
-  let installed = {bundleVersion: allowUpgrade ? '10' : '11', version: '1.1.0', url: 'old'};
+  let installed = {bundleIdentifier:'com.clozach.amaanah.alerts',bundleVersion: allowUpgrade ? '10' : '11', version: '1.1.0', url: 'old'};
   const result = await installAndVerify('/fixture.app', release, f.root, {
     allowUpgrade, installedApp: async () => installed,
     snapshotSaved: async folder => f.capture(folder, {...unchanged, [state]: basename(folder) === 'saved-before' ? '{"a":1,"b":2}' : '{"b":2, "a":1}'}),
@@ -120,7 +120,7 @@ for (const allowUpgrade of [false, true]) test((allowUpgrade ? 'managed upgrade'
 test('real changed state after install fails and retains both snapshots without restoring either', async t => {
   const f = fixture(t), calls = [];
   await assert.rejects(installAndVerify('/fixture.app', {build: '11', version: '1.1.0', installedURL: 'same'}, f.root, {
-    installedApp: async () => ({bundleVersion: '11', version: '1.1.0', url: 'same'}),
+    installedApp: async () => ({bundleIdentifier:'com.clozach.amaanah.alerts',bundleVersion: '11', version: '1.1.0', url: 'same'}),
     snapshotSaved: async folder => f.capture(folder, {[state]: basename(folder) === 'saved-before' ? '{"draft":"old"}' : '{"draft":"new"}'}),
     device: async args => { calls.push(args); return {success: true}; },
   }), /JSON content differs/);

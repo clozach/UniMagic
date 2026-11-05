@@ -1,6 +1,6 @@
 # UniMagic releases
 
-## Unreleased
+## 1.0.0
 
 - A native Mac menu-bar picker, available without Tinycast, with the existing Unicode search, learning, browsing and glyph details.
 - A standalone iPhone app and keyboard, preserving separate native histories and no Full Access requirement.

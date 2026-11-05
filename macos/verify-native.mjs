@@ -14,5 +14,9 @@ console.log(JSON.stringify(command==='renew'?{kind:'healthy',expiresAt:Date.now(
  writeFileSync(join(contents,'Info.plist'),'<?xml version="1.0"?><plist version="1.0"><dict><key>CFBundleExecutable</key><string>Checks</string><key>CFBundleIdentifier</key><string>com.clozach.unimagic.fixture</string></dict></plist>');
  const sources=['Bridge.swift','PickerModel.swift','ReleaseSettings.swift','PhoneUpdateService.swift','PasteDestination.swift','KeeperCommand.swift','tests/ModelChecks.swift'].map(p=>'macos/'+p);
  execFileSync('swiftc',['-O','-parse-as-library',...sources,...readdirSync('release-kit').filter(p=>p.endsWith('.swift')).map(p=>'release-kit/'+p),'-o',join(bin,'Checks'),'-framework','AppKit','-framework','SwiftUI','-framework','Security'],{stdio:'inherit'});
- execFileSync(join(bin,'Checks'),[],{env:{...process.env,UNIMAGIC_FIXTURE:'1',UNIMAGIC_LIBRARY:join(dir,'library')},stdio:'inherit',timeout:20000});
+ const repetitions=Number(process.env.UNIMAGIC_NATIVE_REPEAT??1);if(!Number.isInteger(repetitions)||repetitions<1||repetitions>50)throw new Error('UNIMAGIC_NATIVE_REPEAT must be1–50');
+ for(let iteration=0;iteration<repetitions;iteration++){
+  console.log(`Native model check ${iteration+1}/${repetitions}`);
+  execFileSync(join(bin,'Checks'),[],{env:{...process.env,UNIMAGIC_FIXTURE:'1',UNIMAGIC_LIBRARY:join(dir,'library-'+iteration)},stdio:'inherit',timeout:20000});
+ }
 } finally {rmSync(dir,{recursive:true,force:true});}
