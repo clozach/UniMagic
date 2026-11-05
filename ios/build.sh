@@ -3,7 +3,7 @@ set -euo pipefail
 source_dir="$(cd "$(dirname "$0")" && pwd)"
 build_root="${UNIMAGIC_BUILD_ROOT:-/tmp/unimagic-build}"
 mode="${1:-simulator}"
-release_version="${BUILD_VERSION:-1.0.0}"
+release_version="${BUILD_VERSION:-$(tr -d '[:space:]' < "$source_dir/../VERSION")}"
 release_build="${BUILD_NUMBER:-1}"
 [[ "$release_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ && "$release_build" =~ ^[0-9]+$ ]] || { echo 'Invalid BUILD_VERSION or BUILD_NUMBER' >&2; exit 64; }
 mkdir -p "$build_root/project/Resources"

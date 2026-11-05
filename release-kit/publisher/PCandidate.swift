@@ -96,7 +96,7 @@ struct Candidate {
         try log.write(to: testLog)
         guard try treeDigest(snapshot) == sourceDigest else { throw PublisherError("A check changed the frozen source. Prepare again after fixing the check.") }
         Telemetry.begin("build")
-        Command.log("Building the signed, universal release once.")
+        Command.log("Building the signed release once.")
         try Command.run("/usr/bin/env", ["CLIPEDGE_UPDATE_FEED=\(PublishedRelease.feed)", "RELEASE_KIT_UPDATE_FEED=\(PublishedRelease.feed)", "/bin/bash", PublisherProduct.current.releaseScript], at: snapshot)
         guard try treeDigest(snapshot) == sourceDigest else { throw PublisherError("The build changed the frozen source. Nothing was published.") }
         Telemetry.begin("verify-app")

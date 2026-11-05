@@ -87,6 +87,20 @@ struct PublishedRelease {
                                 archiveName: archive["name"] as! String)
     }
 
+    /// A first publication advances main itself before GitHub has a latest
+    /// release. Accept that advance only while main AND the release tag still
+    /// name the exact reviewed source commit/tree. A draft is not a latest release.
+    func matchesInitialCandidate(preparedBaseline: String, tag candidateTag: String,
+                                 commit candidateCommit: String, tree candidateTree: String) throws -> Bool {
+        let prefix = "unreleased:"
+        guard PublisherProduct.current.allowInitialRelease, tag.isEmpty,
+              preparedBaseline.hasPrefix(prefix), isObjectID(String(preparedBaseline.dropFirst(prefix.count))),
+              commit == candidateCommit, tree == candidateTree else { return false }
+        let tagged = try jsonObject(Command.run("gh", ["api", "repos/\(Self.repository)/commits/\(candidateTag)"], quiet: true))
+        return tagged["sha"] as? String == candidateCommit &&
+            ((tagged["commit"] as? [String: Any])?["tree"] as? [String: Any])?["sha"] as? String == candidateTree
+    }
+
     var json: [String: Any] {
         ["latestVersion": version, "latestFingerprint": fingerprint, "releaseURL": page, "baseline": baseline]
     }
