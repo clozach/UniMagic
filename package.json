@@ -1,0 +1,48 @@
+{
+  "name": "unimagic",
+  "version": "1.0.0",
+  "description": "Native Unicode picker for macOS and iOS, with offline search and learned words",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node --watch macos/build.mjs",
+    "build": "node macos/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "gen": "tsx src/generator/build.ts",
+    "test": "vitest run tests",
+    "build:tinycast": "node esbuild.tinycast.mjs",
+    "build:macos": "node macos/build.mjs",
+    "build:ios": "node ios/package-payload.mjs",
+    "test:release": "node --test tools/tests/*.test.mjs macos/tests/*.test.mjs"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "unicode",
+    "emoji",
+    "glyph",
+    "amaanah"
+  ],
+  "author": "Chris Lozac'h",
+  "license": "MIT",
+  "dependencies": {
+    "minisearch": "^7.1.0"
+  },
+  "devDependencies": {
+    "@raycast/api": "^2.6.2",
+    "@types/node": "^20.11.0",
+    "@types/react": "^19.3.0",
+    "builtin-modules": "^4.0.0",
+    "emojibase-data": "17.0.0",
+    "esbuild": "^0.21.0",
+    "happy-dom": "^20.10.6",
+    "obsidian": "latest",
+    "react": "^19.3.0",
+    "tslib": "^2.6.2",
+    "tsx": "^4.19.0",
+    "typescript": "^5.4.0",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=22.16.0"
+  }
+}

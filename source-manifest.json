@@ -1,0 +1,33 @@
+{
+  "unicode": "17.0.0",
+  "security": "17.0.0",
+  "emojibase": "17.0.0",
+  "minimumRecords": 39626,
+  "files": {
+    "UnicodeData.txt": {
+      "url": "https://www.unicode.org/Public/17.0.0/ucd/UnicodeData.txt",
+      "sha256": "2e1efc1dcb59c575eedf5ccae60f95229f706ee6d031835247d843c11d96470c"
+    },
+    "Blocks.txt": {
+      "url": "https://www.unicode.org/Public/17.0.0/ucd/Blocks.txt",
+      "sha256": "c0edefaf1a19771e830a82735472716af6bf3c3975f6c2a23ffbe2580fbbcb15"
+    },
+    "Scripts.txt": {
+      "url": "https://www.unicode.org/Public/17.0.0/ucd/Scripts.txt",
+      "sha256": "9f5e50d3abaee7d6ce09480f325c706f485ae3240912527e651954d2d6b035bf"
+    },
+    "DerivedAge.txt": {
+      "url": "https://www.unicode.org/Public/17.0.0/ucd/DerivedAge.txt",
+      "sha256": "f8ecdf768bdc210f201abd271d9bc587825618a86a7046a8146cc816393f1998"
+    },
+    "NamesList.txt": {
+      "url": "https://www.unicode.org/Public/17.0.0/ucd/NamesList.txt",
+      "sha256": "0dcedcb47ab03d71bdd6864dd6224508c5722c9556786b1c65c8d7296cad3af4"
+    },
+    "confusables.txt": {
+      "url": "https://www.unicode.org/Public/17.0.0/security/confusables.txt",
+      "sha256": "091c7f82fc39ef208faf8f94d29c244de99254675e09de163160c810d13ef22a"
+    }
+  },
+  "generationDate": "2026-11-05"
+}

@@ -1,0 +1,102 @@
+name: Unimagic
+options:
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    DEVELOPMENT_TEAM: AD29JN9GKN
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+targets:
+  Unimagic:
+    type: application
+    platform: iOS
+    sources:
+      - App
+      - Shared
+      - path: Engine
+        excludes: [Tests]
+      - path: Controls/OpenUnimagic.swift
+      - path: Resources
+        buildPhase: resources
+    info:
+      path: Generated/App-Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDisplayName: UniMagic
+        UniMagicVisibilityAppGroup: group.com.clozach.unimagic.visibility
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        ITSAppUsesNonExemptEncryption: false
+        CFBundleURLTypes:
+          - CFBundleURLName: com.clozach.unimagic
+            CFBundleURLSchemes: [unimagic]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.clozach.unimagic
+        CODE_SIGN_ENTITLEMENTS: App/Unimagic.entitlements
+    dependencies:
+      - sdk: libsqlite3.tbd
+      - target: UnimagicKeyboard
+      - target: UnimagicControls
+  UnimagicKeyboard:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Keyboard
+      - Shared
+      - path: Engine
+        excludes: [Tests]
+      - path: Resources
+        buildPhase: resources
+    info:
+      path: Generated/Keyboard-Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDisplayName: UniMagic
+        UniMagicVisibilityAppGroup: group.com.clozach.unimagic.visibility
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.keyboard-service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).KeyboardViewController
+          NSExtensionAttributes:
+            IsASCIICapable: false
+            PrefersRightToLeft: false
+            PrimaryLanguage: en-US
+            RequestsOpenAccess: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.clozach.unimagic.keyboard
+        CODE_SIGN_ENTITLEMENTS: Keyboard/UnimagicKeyboard.entitlements
+        APPLICATION_EXTENSION_API_ONLY: YES
+    dependencies:
+      - sdk: libsqlite3.tbd
+  UnimagicControls:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Controls
+    info:
+      path: Generated/Controls-Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDisplayName: UniMagic
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.clozach.unimagic.controls
+        APPLICATION_EXTENSION_API_ONLY: YES
+schemes:
+  Unimagic:
+    build:
+      targets:
+        Unimagic: all

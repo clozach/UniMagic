@@ -1,0 +1,33 @@
+{
+  "name": "UniMagic",
+  "repository": "clozach/UniMagic",
+  "bundleIdentifier": "com.clozach.unimagic.mac",
+  "infoPrefix": "UniMagic",
+  "identityAlgorithm": "unimagic-content-v1",
+  "identityPrefixes": [
+    "src/core/", "src/generator/", "src/hosts/shared/", "src/hosts/macos/",
+    "src/hosts/tinycast/", "macos/", "ios/", "release-kit/", "seeds/", "reference/", "tools/paired-mac/", "licenses/"
+  ],
+  "identityExact": [
+    "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tsconfig.json",
+    "source-manifest.json", "src/types.d.ts", "esbuild.macos.mjs", "esbuild.tinycast.mjs", "release-product.json",
+    "tools/release.sh", "tools/release.mjs", "tools/release-layout.mjs", "tools/reference-input.mjs", "tools/maintainer-build.mjs", "tools/source-layout.mjs", "tools/export-source.mjs", "tools/source-audit.mjs",
+    "scripts/ios-corpus.mjs", "scripts/build-browse-catalogue.ts", "THIRD_PARTY_NOTICES.md", "LICENSE"
+  ],
+  "excludePrefixes": [
+    "node_modules", ".build", ".cache", "macos/build", "ios/build", "build-tinycast",
+    "unimagic-corpus.json", "unimagic-corpus.json.gz", "main.js", "seeds/recents-screenshot-seed.json",
+    "ios/Resources/RecentsSeed.json", "ios/Resources/UniCharCategories.ttf"
+  ],
+  "sourceMappings": {
+    "seeds": "../seeds",
+    "tools/paired-mac/keeper": "../../iphone-agent-alerts/src/keeper",
+    "tools/paired-mac/signing": "../../iphone-agent-alerts/src/signing"
+  },
+  "exportScript": "tools/export-source.sh",
+  "testScripts": ["tools/test-source.sh", "tools/test-release.sh"],
+  "releaseScript": "tools/release.sh",
+  "archiveTemplate": ".build/releases/UniMagic-{version}-macOS-arm64.zip",
+  "appTemplate": ".build/releases/UniMagic-{version}.app",
+  "allowInitialRelease": true
+}

@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {plan,phoneReady,needsConnectionNotice,HOUR} from './decide.mjs';
+const now=1000000000,state={kind:'healthy',release:{expiresAt:now+49*HOUR}};
+test('two-day renewal boundary is exact',()=>{assert.equal(plan(state,now),'healthy');assert.equal(plan({...state,release:{expiresAt:now+48*HOUR}},now),'probe');});
+test('fresh pending installation is resumed even when old expiry is healthy',()=>{assert.equal(plan({...state,pending:{app:'saved'}},now),'probe');});
+test('authentication and review holds precede the healthy shortcut',()=>{assert.equal(plan({...state,kind:'needs_auth'},now),'authentication');assert.equal(plan({...state,kind:'needs_review'},now),'review');});
+test('backoff ends at its exact saved deadline',()=>{const due={...state,release:{expiresAt:now+HOUR},retryAt:now+HOUR};assert.equal(plan(due,now),'backoff');assert.equal(plan(due,now+HOUR),'probe');});
+test('operator force is explicit while unconfigured always stays fenced',()=>{assert.equal(plan(state,now,{force:true}),'probe');assert.equal(plan({},now,{force:true}),'unconfigured');});
+test('automatic installs require a reachable locked phone',()=>{assert.equal(phoneReady({reachable:true,locked:true}),true);assert.equal(phoneReady({reachable:true,locked:false}),false);assert.equal(phoneReady({reachable:false,locked:true},true),false);});
+test('connection warning needs both urgency and a sustained absence',()=>{const urgent={release:{expiresAt:now+10*HOUR}};assert.equal(needsConnectionNotice(urgent,now,now-29*60000),false);assert.equal(needsConnectionNotice(urgent,now,now-31*60000),true);assert.equal(needsConnectionNotice(state,now,now-HOUR),false);});

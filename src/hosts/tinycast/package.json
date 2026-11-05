@@ -1,0 +1,43 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "unimagic",
+  "title": "Unimagic",
+  "description": "Find any Unicode glyph by name, sign, code point or your own words, and paste it into the app you were in. Shares the Mac UniMagic library.",
+  "icon": "unimagic-icon.png",
+  "author": "clozach",
+  "categories": [
+    "Productivity"
+  ],
+  "keywords": [
+    "unicode",
+    "emoji",
+    "glyph",
+    "symbol",
+    "character",
+    "arrow",
+    "dash"
+  ],
+  "license": "MIT",
+  "platforms": [
+    "macOS"
+  ],
+  "commands": [
+    {
+      "name": "unimagic",
+      "title": "Unimagic",
+      "subtitle": "Glyphs",
+      "description": "Search 39,000 glyphs; pasting one teaches it the word you searched.",
+      "mode": "view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "dataFile",
+      "type": "textfield",
+      "required": false,
+      "title": "Learned words file",
+      "description": "Optional custom library data.json. Leave blank to share UniMagic’s Mac-owned library; previous Obsidian stores migrate without deleting originals.",
+      "default": ""
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+name: UnimagicUI
+options:
+  deploymentTarget:
+    iOS: '18.0'
+targets:
+  UnimagicUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: .
+        includes: ['*.swift']
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.clozach.unimagic.ui-tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: '5.0'
+        CODE_SIGNING_ALLOWED: NO
+schemes:
+  UnimagicUITests:
+    build:
+      targets:
+        UnimagicUITests: all
+    test:
+      targets: [UnimagicUITests]

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "symbols": {
+    "E97A": "waveform",
+    "E97D": "quote.opening",
+    "E91B": "dollarsign.circle",
+    "E94B": "textformat.abc",
+    "E956": "sum",
+    "E971": "parentheses",
+    "E911": "star",
+    "E920": "number",
+    "E949": "textformat",
+    "E993": "gearshape",
+    "E95F": "music.note",
+    "E905": "arrow.left.arrow.right",
+    "E926": "a.circle",
+    "E90D": "square.split.2x2",
+    "E92A": "square.on.circle",
+    "E97B": "figure.stand",
+    "E985": "info.circle",
+    "E922": "sparkles",
+    "E90F": "circle.grid.3x3",
+    "E93A": "character.book.closed",
+    "E923": "pencil.line"
+  }
+}

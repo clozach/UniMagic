@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "emojiExemplar": "🐻‍❄️",
+  "legacyRanges": [
+    { "id": "legacy:Numbers", "title": "Numbers", "symbol": "0", "ranges": [[48,57],[178,179],[185,185],[8304,8351],[8528,8591],[65296,65305]] },
+    { "id": "legacy:Writing", "title": "Writing", "symbol": "!", "ranges": [[33,47],[58,64],[91,96],[123,126],[161,161],[171,171],[182,183],[187,187],[191,191],[8192,8303],[11776,11903]] },
+    { "id": "legacy:Music", "title": "Music", "symbol": "♪", "ranges": [[9833,9839],[118784,119375]] },
+    { "id": "legacy:Stars & bullets", "title": "Stars & bullets", "symbol": "✽", "ranges": [[8226,8227],[8259,8259],[8729,8729],[9632,9727],[9984,10175]] },
+    { "id": "legacy:Enclosed numbers", "title": "Enclosed numbers", "symbol": "①", "ranges": [[9312,9371],[9450,9471],[10102,10131],[127232,127244]] },
+    { "id": "legacy:Enclosed letters", "title": "Enclosed letters", "symbol": "ⓐ", "ranges": [[9372,9449],[127248,127404]] }
+  ],
+  "setExemplars": { "Dashes": "—", "Fractions": "½", "Quotes": "❞", "Keys": "⌘", "Spaces": "␣", "Currencies": "¤", "Arrows": "→", "Other Glyphs": "A" },
+  "overlapPolicy": "Keep every source identity. Arrows source titles are disambiguated; overlap never aliases membership.",
+  "unicharScope": "The 21 observed fixed categories; latent 172-category catalogue expansion is excluded."
+}

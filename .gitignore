@@ -1,0 +1,9 @@
+node_modules/
+.cache/
+.build/
+macos/build/
+build-tinycast/
+ios/build/
+*.xcodeproj/
+unimagic-corpus.json
+unimagic-corpus.json.gz

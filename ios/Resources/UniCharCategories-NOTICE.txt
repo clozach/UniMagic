@@ -1,0 +1,5 @@
+UniMagic retains the category identifiers, labels, samples and legacy exemplar IDs
+from its observed UniChar inventory. The copied UniCharCategories font is no
+longer bundled. CategoryArtwork.json independently maps those legacy IDs to
+system symbol names; the operating system renders the symbols. User-assigned
+Unicode and emoji exemplars remain unchanged.

@@ -1,0 +1,7 @@
+allowBuilds:
+  esbuild: true
+# pnpm 11 moved build-script approval out of package.json (AGENTS.md § Node
+# deps in the vault use pnpm). esbuild's postinstall fetches its platform
+# binary and is genuinely needed.
+onlyBuiltDependencies:
+  - esbuild
