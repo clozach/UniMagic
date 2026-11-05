@@ -35,4 +35,4 @@ Paired-Mac installation takes preservation snapshots and verifies installed iden
 
 ## Licenses
 
-Original code is [MIT](LICENSE). Unicode data, inherited curation and bundled dependencies retain their [third-party notices](THIRD_PARTY_NOTICES.md). Categories, keywords and character coverage are preserved; the copied UniChar category-icon font is replaced with system artwork.
+Original code is [MIT](LICENSE). Unicode data, inherited curation and bundled dependencies retain their [third-party notices](THIRD_PARTY_NOTICES.md). The optional copied Tinycast folder carries its own complete notices and licenses too. Categories, keywords and character coverage are preserved; the copied UniChar category-icon font is replaced with system artwork.

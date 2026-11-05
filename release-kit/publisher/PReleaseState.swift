@@ -48,8 +48,12 @@ struct PublishedRelease {
               let entries = tree["tree"] as? [[String: Any]] else { throw PublisherError("The public source listing was incomplete.") }
         var blobs: [String: String] = [:]
         for entry in entries {
+            // GitHub recursive listings include directory nodes as well as files.
+            // Prefix-based products match those paths too; only actual tree nodes
+            // may be skipped. Selected links/submodule commits must still fail.
+            if entry["type"] as? String == "tree", entry["mode"] as? String == "040000" { continue }
             guard let path = entry["path"] as? String, ContentIdentity.included(path) else { continue }
-            guard entry["type"] as? String == "blob", entry["mode"] as? String != "120000",
+            guard entry["type"] as? String == "blob", ["100644", "100755"].contains(entry["mode"] as? String ?? ""),
                   let sha = entry["sha"] as? String else { throw PublisherError("A public build input was not a regular file.") }
             blobs[path] = sha
         }

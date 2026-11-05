@@ -1,6 +1,6 @@
 import esbuild from "esbuild";
 import { execFileSync } from "node:child_process";
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 
 // Tinycast runs Raycast's own built layout: package.json, one <command>.js, assets/.
 const out = "build-tinycast";
@@ -37,6 +37,12 @@ await esbuild.build({
 });
 cpSync(`${host}/package.json`, `${out}/package.json`);
 cpSync(`${host}/assets`, `${out}/assets`, { recursive: true });
+// The optional copied command remains a complete distribution of its notices.
+const seedRoot = existsSync("seeds") ? "seeds" : "../seeds";
+for (const name of ["LICENSE", "THIRD_PARTY_NOTICES.md"]) cpSync(name, `${out}/${name}`);
+cpSync("licenses", `${out}/licenses`, { recursive: true });
+cpSync("ios/Resources/Notices.txt", `${out}/assets/Notices.txt`);
+for (const name of ["GLYPHFINDER-NOTICE.md", "EMOTIF-NOTICE.md"]) cpSync(`${seedRoot}/${name}`, `${out}/assets/${name}`);
 mkdirSync(`${out}/assets/categories`, { recursive: true });
 execFileSync("swift", [`${host}/category-icons.swift`, "ios/Resources/BrowseInventory.json", "ios/Resources/CategoryArtwork.json", `${out}/assets/categories`], { stdio: "inherit" });
 
