@@ -66,6 +66,12 @@ async function hostSnapshot(host,side,folder,io){
  return result;
 }
 
+export async function snapshotKeyboard(folder,side,io={}) {
+ if(!['source','destination'].includes(side))throw Error('Unknown migration side');
+ const files=await hostSnapshot(hosts[1],side,folder,io);
+ validateStore(folder,hosts[1]);return files;
+}
+
 export async function inspectMigration(folder,{side='source',io={}}={}){
  if(!['source','destination'].includes(side))throw Error('Expected source or destination');
  mkdirSync(folder,{recursive:true,mode:0o700});const files={};

@@ -23,6 +23,21 @@ import SwiftUI
         check(app.selectedCategoryID == "set:Emojis", "Emoji landing")
         check(app.sections.filter { !$0.items.isEmpty }.count == 1, "Only selected section materialized at startup")
         check(app.sections.reduce(0) { $0 + $1.items.count } == 100, "No eager354-page allocation")
+        let emojiID = "set:Emojis", count = section(app, "set:Emojis").displayCount
+        check(count > 1205, "Full section geometry is available before the first flick")
+        var scrollNotifications = 0
+        let subscription = app.objectWillChange.sink { scrollNotifications += 1 }
+        for row in 0..<100 { app.visibleSectionChanged(emojiID, leadingOccurrenceID: "anchor-\(row)") }
+        check(scrollNotifications == 0 && app.anchors[emojiID] == "anchor-99", "Moving within one category updates the return anchor without republishing every glyph")
+        subscription.cancel()
+        app.demandVisible(emojiID, positions: 1200...1205)
+        try await wait("fast forward seek") { section(app, emojiID).item(at: 1205) != nil }
+        check(section(app, emojiID).items.first?.position == 1200 && section(app, emojiID).displayCount == count,
+              "Fast scrolling fetches the destination page directly with stable geometry")
+        app.demandVisible(emojiID, positions: 0...24)
+        try await wait("fast reverse seek") { section(app, emojiID).item(at: 0) != nil }
+        check(section(app, emojiID).items.count == 100 && section(app, emojiID).displayCount == count,
+              "Reverse travel keeps rendering memory bounded")
         let preview = await app.samples(for: "unichar:Category-MusicalSymbols")
         check(preview.count == 6 && preview.first?.glyph.symbol == "♩", "Bounded async representative samples")
         let appStore = try NativePersonalizationStore(location: .local(NativePersonalizationPaths.localDirectory(inApplicationSupport: appRoot)), catalogueRevision: app.preferences.catalogueRevision)
@@ -122,6 +137,32 @@ import SwiftUI
         _ = try keyboardStore.importHistory(PickHistoryImport(importID: "large-test", events: many))
         keyboard.query = ""; keyboard.selectCategory(id: "utility:recents")
         try await wait("large history first page") { section(keyboard, "utility:recents").items.count == 100 }
+        var token: String?
+        for _ in 0..<7 { token = try keyboardStore.readHistoryPage(cursor: token).nextCursor }
+        let expected = try keyboardStore.readHistoryPage(cursor: token).events[3]
+        try keyboardStore.appendHistoryEvent(PickHistoryEvent(glyphID: heart.id, symbol: heart.symbol,
+            occurredAt: Date().timeIntervalSince1970 * 1000, provenance: .pick(host: .nativeKeyboard, action: .insert)))
+        keyboard.demandVisible("utility:recents", positions: 700...709)
+        try await wait("direct late history jump") { section(keyboard, "utility:recents").item(at: 703) != nil }
+        check(section(keyboard, "utility:recents").item(at: 703)?.id == "utility:recents:event:" + expected.eventID,
+              "A newer pick cannot move the destination inside the frozen Recents traversal")
+        let parkedEvent = section(keyboard, "utility:recents").item(at: 703)!
+        keyboard.visibleSectionChanged("utility:recents", leadingOccurrenceID: parkedEvent.id)
+        keyboard.showInCategory(heartTarget)
+        try await wait("leave directly sought history window") { keyboard.navigationTarget?.categoryID == heartTarget.categoryID }
+        for category in others where category.id != "utility:recents" {
+            keyboard.ensureSectionLoaded(category.id)
+            try await wait("evict history landing") { !section(keyboard, category.id).items.isEmpty }
+        }
+        check(section(keyboard, "utility:recents").items.isEmpty, "Sought history window was evicted before Back")
+        keyboard.returnFromContext()
+        try await wait("Back restores exact event after direct seek and eviction") {
+            section(keyboard, "utility:recents").item(at: 703)?.id == parkedEvent.id
+        }
+        keyboard.demandVisible("utility:recents", positions: 0...12)
+        try await wait("reverse to cached first history page") { section(keyboard, "utility:recents").item(at: 0) != nil }
+        check(section(keyboard, "utility:recents").items.count == 100 && section(keyboard, "utility:recents").totalCount == .known(831),
+              "History reversal preserves the frozen geometry and contiguous window")
         for _ in 0..<5 {
             let before = section(keyboard, "utility:recents").items.last!.position
             keyboard.loadNextPage("utility:recents")

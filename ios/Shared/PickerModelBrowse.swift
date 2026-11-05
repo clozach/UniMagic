@@ -32,22 +32,49 @@ extension PickerModel {
     func loadPreviousPage(_ categoryID: String) { requestPage(categoryID, leading: true) }
     func loadMore(_ titleOrID: String) { if let id = resolveCategory(titleOrID)?.id { loadNextPage(id) } }
 
-    private func requestPage(_ categoryID: String, leading: Bool) {
+    /// The scroll surface reserves full section geometry. Jump straight to a far-away
+    /// catalogue page. Recents follows its saved keyset cursor to keep duplicates stable.
+    func demandVisible(_ categoryID: String, positions: ClosedRange<Int>) {
+        guard let section = sections.first(where: { $0.id == categoryID }) else { return }
+        if case .loading = section.load { return }
+        if case .loading = section.leadingLoad { return }
+        let first = section.items.first?.position ?? 0, last = section.items.last?.position ?? -1
+        let start = (positions.lowerBound / 100) * 100
+        if positions.lowerBound > last + 100 || positions.upperBound < first - 100 {
+            let cursor: BrowseCursor? = section.category.isRecent ? historyCursor(categoryID, at: start) : .offset(start)
+            if let cursor {
+                let leading = positions.upperBound < first
+                if case .more = leading ? section.leadingLoad : section.load {
+                    requestPage(categoryID, leading: leading, seek: cursor)
+                }
+                return
+            }
+        }
+        if positions.lowerBound < first + 24, case .more = section.leadingLoad { loadPreviousPage(categoryID) }
+        else if positions.upperBound >= last - 24, case .more = section.load { loadNextPage(categoryID) }
+    }
+
+    private func requestPage(_ categoryID: String, leading: Bool, seek: BrowseCursor? = nil) {
         guard let worker, let section = sections.first(where: { $0.id == categoryID }) else { return }
         let cursor: BrowseCursor
-        switch leading ? section.leadingLoad : section.load {
-        case .more(let next), .failed(_, let next): cursor = next
-        case .loading, .complete: return
+        if let seek {
+            cursor = seek
+        } else {
+            switch leading ? section.leadingLoad : section.load {
+            case .more(let next), .failed(_, let next): cursor = next
+            case .loading, .complete: return
+            }
         }
         if section.category.isRecent {
             switch cursor {
-            case .history(_, let position): historyCursors[categoryID, default: [:]][position] = cursor
+            case .history(_, let position), .historySeek(_, _, let position):
+                historyCursors[categoryID, default: [:]][position] = cursor
             case .offset(0): historyCursors[categoryID, default: [:]][0] = .history(cursor: nil, position: 0)
             default: break
             }
         }
         if section.category.isRecent, let first = historyFirstPages[categoryID], cursor == .offset(0) || cursor == .history(cursor: nil, position: 0) {
-            install(first, categoryID: categoryID, leading: leading); return
+            install(first, categoryID: categoryID, leading: leading, replacing: seek != nil); return
         }
         let generation = pageGenerations[categoryID, default: 0]
         change { state in
@@ -58,7 +85,7 @@ extension PickerModel {
             Task { @MainActor in
                 guard let self, self.pageGenerations[categoryID, default: 0] == generation else { return }
                 switch result {
-                case .success(let page): self.install(page, categoryID: categoryID, leading: leading)
+                case .success(let page): self.install(page, categoryID: categoryID, leading: leading, replacing: seek != nil)
                 case .failure(let error):
                     self.change { state in
                         guard let index = state.sections.firstIndex(where: { $0.id == categoryID }) else { return }
@@ -79,7 +106,10 @@ extension PickerModel {
             guard let index = state.sections.firstIndex(where: { $0.id == categoryID }) else { return }
             var section = state.sections[index]
             let startsWindow = section.items.isEmpty
-            var items = Dictionary(uniqueKeysWithValues: (replacing ? [] : section.items).map { ($0.id, $0) })
+            let disjoint = page.startOffset > (section.items.last?.position ?? -1) + 1
+                || page.startOffset + page.items.count < (section.items.first?.position ?? 0)
+            let resetWindow = replacing || disjoint
+            var items = Dictionary(uniqueKeysWithValues: (resetWindow ? [] : section.items).map { ($0.id, $0) })
             for item in page.items { items[item.id] = item }
             section.items = items.values.sorted { $0.position < $1.position }
             if let target = contextTarget {
@@ -88,11 +118,11 @@ extension PickerModel {
                     return BrowseOccurrence(id: item.id, categoryID: item.categoryID, position: item.position, glyph: target.glyph, provenance: item.provenance)
                 }
             }
-            if replacing || startsWindow || section.totalCount == .unknown { section.totalCount = page.totalCount }
-            if leading {
+            if (startsWindow && page.startOffset == 0) || section.totalCount == .unknown { section.totalCount = page.totalCount }
+            if leading && !resetWindow {
                 section.leadingLoad = page.startOffset > 0 ? .more(previousCursor(categoryID, start: page.startOffset, history: section.category.isRecent)) : .complete
             } else { section.load = page.nextCursor.map(PickerBrowseSection.Load.more) ?? .complete }
-            if replacing { section.leadingLoad = page.startOffset > 0 ? .more(.offset(max(0, page.startOffset - 100))) : .complete }
+            if resetWindow { section.leadingLoad = page.startOffset > 0 ? .more(previousCursor(categoryID, start: page.startOffset, history: section.category.isRecent)) : .complete }
             if section.items.count > 300 {
                 if leading {
                     section.items = Array(section.items.prefix(300))
@@ -110,13 +140,19 @@ extension PickerModel {
     }
     private func previousCursor(_ id: String, start: Int, history: Bool) -> BrowseCursor {
         let position = max(0, start - 100)
-        if history { return historyCursors[id]?[position] ?? .history(cursor: nil, position: 0) }
+        if history { return historyCursor(id, at: position) ?? .history(cursor: nil, position: 0) }
         return .offset(position)
     }
+    private func historyCursor(_ id: String, at position: Int) -> BrowseCursor? {
+        if let exact = historyCursors[id]?[position] { return exact }
+        guard case .history(let token?, let boundary) = historyFirstPages[id]?.nextCursor, position >= boundary else { return nil }
+        return .historySeek(after: token, boundary: boundary, position: position)
+    }
     private func trimSections(keeping id: String) {
-        let loaded = sections.filter { !$0.items.isEmpty && $0.id != id && $0.id != selectedCategoryID }.sorted { sectionTouches[$0.id, default: 0] > sectionTouches[$1.id, default: 0] }
+        let loaded = sections.filter { !$0.items.isEmpty && $0.id != id && $0.id != selectedCategoryID && !visibleCategoryIDs.contains($0.id) }.sorted { sectionTouches[$0.id, default: 0] > sectionTouches[$1.id, default: 0] }
         let evicted = Set(loaded.dropFirst(3).map(\.id))
         for id in evicted { pageGenerations[id, default: 0] += 1 }
+        guard !evicted.isEmpty else { return }
         change { state in
             for index in state.sections.indices where evicted.contains(state.sections[index].id) {
                 state.sections[index].items = []; state.sections[index].load = .more(.offset(0)); state.sections[index].leadingLoad = .complete
@@ -143,6 +179,7 @@ extension PickerModel {
         guard sections.contains(where: { $0.id == categoryID }) else { return }
         if let leadingOccurrenceID { anchors[categoryID] = leadingOccurrenceID }
         let returningToUtility = selectedCategoryID != categoryID && categories.first(where: { $0.id == categoryID })?.isUtility == true
+        guard selectedCategoryID != categoryID else { return }
         change { $0.selectedCategoryID = categoryID }
         if returningToUtility { refreshConfiguration() } else { ensureSectionLoaded(categoryID) }
     }

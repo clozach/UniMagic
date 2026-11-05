@@ -63,7 +63,12 @@ public struct BrowseOccurrence: Identifiable, Sendable {
 
 public enum BrowseItemCount: Equatable, Sendable { case known(Int), unknown; public var value: Int? { if case .known(let n) = self { return n }; return nil } }
 
-public enum BrowseCursor: Equatable, Sendable { case offset(Int), history(cursor: String?, position: Int) }
+public enum BrowseCursor: Equatable, Sendable {
+    case offset(Int)
+    case history(cursor: String?, position: Int)
+    /// A jump inside the same frozen history traversal, relative to a known page boundary.
+    case historySeek(after: String, boundary: Int, position: Int)
+}
 public struct BrowsePage: Sendable {
     public let items: [BrowseOccurrence]
     public let nextCursor: BrowseCursor?

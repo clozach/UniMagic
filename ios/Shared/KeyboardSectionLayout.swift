@@ -1,23 +1,24 @@
 import SwiftUI
 
 struct KeyboardSectionLayout {
-    struct Section: Identifiable { let id: String; let frame: CGRect; let count: Int }
+    struct Section: Identifiable { let index: Int; let id: String; let frame: CGRect; let count: Int }
     let sections: [Section]
     let rows: Int
     let size: CGSize
     let width: CGFloat
-    var signature: String { sections.map { $0.id + ":" + String($0.count) }.joined(separator: "|") }
+    let signature: String
     init(sections: [PickerBrowseSection], size: CGSize) {
         let rowCount = max(1, Int((size.height + 4) / 52))
         self.size = size; rows = rowCount
         var x: CGFloat = 8
-        self.sections = sections.map { section in
+        self.sections = sections.enumerated().map { index, section in
             let count = section.totalCount.value ?? ((section.items.last?.position ?? -1) + 1)
             let columns = max(1, (count + rowCount - 1) / rowCount)
             let width = count == 0 ? max(180, size.width - 16) : CGFloat(columns) * 56
             let frame = CGRect(x: x, y: 0, width: width, height: size.height)
-            x += width + 16; return Section(id: section.id, frame: frame, count: count)
+            x += width + 16; return Section(index: index, id: section.id, frame: frame, count: count)
         }
+        signature = self.sections.map { $0.id + ":" + String($0.count) }.joined(separator: "|")
         width = max(size.width, x - 8, (self.sections.last?.frame.minX ?? 8) + size.width - 8)
     }
     func visible(at offset: CGFloat) -> [Section] {

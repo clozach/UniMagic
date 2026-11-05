@@ -4,7 +4,7 @@ import {homedir} from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {run} from './process.mjs';
 import {BUNDLE,TEAM,IDENTITY,profileInfo,inspectApp,plist} from './artifact.mjs';
-import {SIGNING_TARGETS,signingTargets} from './signing-targets.mjs';
+import {SIGNING_TARGETS,signingTargets,embeddedKeyboardBuild} from './signing-targets.mjs';
 import {releaseCapabilities,groupsForTarget,requireSameCapabilities,requireProfileGroups} from './release-capabilities.mjs';
 const cache=join(homedir(),'Library/Developer/Xcode/UserData/Provisioning Profiles');
 const requestedTargets=keyboard=>SIGNING_TARGETS.filter(target=>keyboard||target.key!=='keyboard');
@@ -109,7 +109,7 @@ export async function renewProfiles(attempt,{keyboard=false,capabilities,...io}=
 }
 
 export async function provisionAndSign(release,attempt,io={}){
- const execute=io.run??run,targets=signingTargets(release.app,{requireKeyboard:Number(release.build)>=10}),capabilities=releaseCapabilities(release.capabilities);
+ const execute=io.run??run,targets=signingTargets(release.app,{requireKeyboard:embeddedKeyboardBuild(release.build)}),capabilities=releaseCapabilities(release.capabilities);
  const selected=await(io.renewProfiles??renewProfiles)(attempt,{...io,keyboard:targets.some(target=>target.key==='keyboard'),capabilities});
  const app=join(attempt,'PowWorm.app');cpSync(release.app,app,{recursive:true});
  for(const target of targets){

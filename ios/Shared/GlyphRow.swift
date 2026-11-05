@@ -16,9 +16,10 @@ struct GlyphRow: View {
         HStack(spacing: 4) {
             ForEach(items) { item in
                 let glyph = item.glyph
+                let label = GlyphDisplay.label(glyph)
                 Button { model.picked(item, destination: destination, feedback: host.inserts ? "Inserted" : "Copied") } label: {
-                    Text(GlyphDisplay.label(glyph))
-                        .font(GlyphDisplay.label(glyph) == glyph.symbol || GlyphDisplay.label(glyph).hasPrefix("◌") ? .system(size: 30) : .caption)
+                    Text(label)
+                        .font(label == glyph.symbol || label.hasPrefix("◌") ? .system(size: 30) : .caption)
                         .lineLimit(1).minimumScaleFactor(0.15)
                         .frame(maxWidth: .infinity, minHeight: 48)
                         .contentShape(Rectangle())

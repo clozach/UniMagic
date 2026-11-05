@@ -1,5 +1,10 @@
 # UniMagic releases
 
+## 1.0.3
+
+- The iPhone picker keeps its momentum across glyph pages during fast flicks. Slow drags keep their precision.
+- Browsing loads glyphs around the visible area, and returning from Details restores the selected Recents entry.
+
 ## 1.0.2
 
 - A native Mac menu-bar picker, available without Tinycast, with the existing Unicode search, learning, browsing and glyph details.

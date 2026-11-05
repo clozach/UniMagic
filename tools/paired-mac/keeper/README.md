@@ -38,3 +38,15 @@ The exporter performs two stable reads, verifies SQLite integrity/version, and k
 Tests: `node --test *.test.mjs`. Fixture tests cover default-off and malformed consent, fresh-read revocation, manual discovery without install authority, signature/archive boundaries, bootstrap readback, distinct app/keyboard stores, byte preservation, idempotence and refusal to overwrite newer data. Tests and Simulator captures do not certify physical-phone delivery.
 
 After one successful OS install, both bootstrap and in-place delivery poll installed metadata for at most 20 seconds (500 ms intervals). Verification requires the exact bundle, version, build and nonempty app URL; when the OS receipt supplies its installation URL, the queried URL must also match it, including same-build renewals. No install is repeated. Abort, wrong identity or timeout stops before the saved-after snapshot and maintenance-state update; retain the receipt and backups for inspection.
+
+### One-time PowWorm keyboard retirement
+
+PowWorm build 16 ships the app and notification service. Builds 10–15 retain their original keyboard for frozen-release renewal. From the signed build-15 installation, first close both keyboards, then run the following with the private path to the original verified transfer receipt:
+
+    node keeper.mjs catch-up-keyboard --receipt <original-transfer-receipt.json>
+
+This copies only changed keyboard files while their destination still matches the approved baseline and retains private backups. A divergent standalone edit stops the copy. After verifying an insertion using standalone UniMagic with Full Access off, install the signed build 16 using the receipt returned above:
+
+    node keeper.mjs retire-keyboard --app <signed-PowWorm16.app> --transfer-receipt <catch-up-receipt.json>
+
+The installer requires the registered build-15 identity, checks the transferred history against the standalone database and archives the retired keyboard and shared container. It verifies surviving PowWorm files after installation before registering build 16 for renewal. The ordinary install command refuses the transition. For rollback, retain the private attempt, reintroduce the old keyboard in a higher, deliberately supported build, and restore its archived stores only after comparing the destination. Never uninstall PowWorm to roll back. Independent paired-Mac UniMagic updates still use the standalone product configuration.

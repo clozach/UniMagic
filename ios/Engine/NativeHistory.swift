@@ -8,11 +8,12 @@ extension NativePersonalizationStore {
     public func appendHistoryEvent(_ event: PickHistoryEvent) throws {
         try transaction { try self.insertHistory(event) }
     }
-    public func readHistoryPage(cursor: String? = nil, limit: Int = 100) throws -> PickHistoryPage {
+    public func readHistoryPage(cursor: String? = nil, limit: Int = 100, skipping: Int = 0) throws -> PickHistoryPage {
         guard (1...500).contains(limit) else { throw NativeStoreError.invalidDocument("History page size must be 1–500") }
+        guard skipping >= 0 else { throw NativeStoreError.invalidCursor }
         return try locked {
             let query = try historyPageQuery(cursor: cursor, limit: limit)
-            let page = try rows(query.sql, query.values)
+            let page = try rows(query.sql + " OFFSET ?", query.values + [.integer(Int64(skipping))])
             let visible = Array(page.prefix(limit))
             let events = try visible.map { try JSONDecoder().decode(PickHistoryEvent.self, from: Data(($0["payload"] ?? "").utf8)) }
             var next: String?

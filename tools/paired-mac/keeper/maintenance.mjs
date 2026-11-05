@@ -73,7 +73,7 @@ export async function installRelease(app,{home=HOME,io={}}={}){
  try{
   const release=await(io.capture??captureRelease)(app,{home,signal:controller.signal,onChild:lock.onChild}),attempt=join(home,'attempts','install-'+randomUUID());mkdirSync(attempt,{recursive:true});
   const previousRelease=readMaintenance(home).release;
-  const verification=await(io.install??installAndVerify)(release.app,release,attempt,{signal:controller.signal,onChild:lock.onChild,allowUpgrade:true,previousRelease});
+  const verification=await(io.install??installAndVerify)(release.app,release,attempt,{signal:controller.signal,onChild:lock.onChild,allowUpgrade:true,previousRelease,verifyKeyboardRetirement:io.verifyKeyboardRetirement});
   release.installedAt=Date.now();release.installedURL=verification.installedURL;const receipt=join(attempt,'receipt.json');atomicJSON(receipt,{release,verification,finishedAt:Date.now()});saveMaintenance({kind:'healthy',release,verification,receipt,summary:'Latest installed release registered for renewal.'},home);return release;
  }finally{process.removeListener('SIGTERM',stop);process.removeListener('SIGINT',stop);lock.release();saveMaintenance(readMaintenance(home),home);}
 }

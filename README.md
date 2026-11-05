@@ -4,6 +4,8 @@ A Unicode picker that learns your words. Find a character, browse a category, te
 
 UniMagic includes a native Mac menu-bar app, an optional Tinycast command using the same Mac library, and a standalone iPhone app with a searchable keyboard. The Mac app opens with **Control–Command–Space**; Return pastes, Command–Return reverses Keep open for one pick, and Shift–Command–C copies. Glyph details expose encodings, variants, related characters and learned words.
 
+On iPhone, drag to browse a few rows or flick to coast through long categories. Hold a glyph for details, then go back to its place in the browser.
+
 ## Install
 
 Download the Apple Silicon Mac app from [Releases](https://github.com/clozach/UniMagic/releases). Current direct downloads are development-certificate signed, not Developer ID notarized; macOS may require an explicit security allowance. No App Store/TestFlight distribution is offered yet. The iPhone build uses your own Apple development signing and a paired Mac; an app cannot install its own iOS updates.

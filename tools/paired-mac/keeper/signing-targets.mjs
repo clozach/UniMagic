@@ -8,11 +8,12 @@ export const SIGNING_TARGETS = [
  {key:'keyboard',suffix:'.keyboard',path:'PlugIns/UnimagicKeyboard.appex'},
  {key:'app',suffix:'',path:''},
 ];
+export const embeddedKeyboardBuild = build => Number(build) >= 10 && Number(build) < 16;
 export function signingTargets(app,{requireKeyboard=false}={}) {
  const plugins=join(app,'PlugIns'), names=existsSync(plugins)?readdirSync(plugins).filter(name=>name.endsWith('.appex')):[];
  if(names.some(name=>!SIGNING_TARGETS.some(target=>target.path==='PlugIns/'+name)))throw Error('Unsupported extension in frozen release; preserve its signing lane');
  if(!existsSync(join(app,SIGNING_TARGETS[0].path)))throw Error('Notification service extension missing');
  const targets=SIGNING_TARGETS.filter(target=>target.key!=='keyboard'||existsSync(join(app,target.path)));
- if(requireKeyboard&&!targets.some(target=>target.key==='keyboard'))throw Error('UniMagic keyboard extension missing from build 10 or later');
+ if(requireKeyboard&&!targets.some(target=>target.key==='keyboard'))throw Error('UniMagic keyboard extension missing from a release that shipped it');
  return targets;
 }

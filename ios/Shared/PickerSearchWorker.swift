@@ -63,13 +63,15 @@ final class PickerSearchWorker: @unchecked Sendable {
     func page(category: BrowseCategory, cursor: BrowseCursor, usage: [UsageEntry], completion: @escaping @Sendable (Result<BrowsePage, Error>) -> Void) {
         perform({ session in
             if category.isRecent {
-                let cursorValue: String?, position: Int
+                let cursorValue: String?, position: Int, skip: Int
                 switch cursor {
-                case .history(let value, let offset): cursorValue = value; position = offset
-                case .offset(0): cursorValue = nil; position = 0
+                case .history(let value, let offset): cursorValue = value; position = offset; skip = 0
+                case .historySeek(let value, let boundary, let offset) where offset >= boundary:
+                    cursorValue = value; position = offset; skip = offset - boundary
+                case .offset(0): cursorValue = nil; position = 0; skip = 0
                 default: throw NativeStoreError.invalidCursor
                 }
-                let store = try session.store.get(), page = try store.readHistoryPage(cursor: cursorValue, limit: 100)
+                let store = try session.store.get(), page = try store.readHistoryPage(cursor: cursorValue, limit: 100, skipping: skip)
                 let items = page.events.enumerated().map { offset, event in
                     BrowseOccurrence(id: category.id + ":event:" + event.eventID, categoryID: category.id, position: position + offset,
                                      glyph: session.engine.historyGlyph(id: event.glyphID, symbol: event.symbol), provenance: .history(event))

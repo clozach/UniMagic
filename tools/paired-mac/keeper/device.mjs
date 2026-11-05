@@ -82,12 +82,16 @@ export async function installAndVerify(app,release,attempt,io={}){
  const preserved=io.previousRelease??release;
  if(io.previousRelease&&(installed.bundleVersion!==preserved.build||installed.version!==preserved.version||installed.url!==preserved.installedURL))throw Error('Installed identity differs from preservation baseline');
  if(io.allowUpgrade&&!io.previousRelease&&releaseCapabilities(release.capabilities,io.product?.appGroup).kind==='unimagic-sharing')throw Error('Shared upgrade requires a verified installed preservation baseline');
+ const retiresKeyboard=!io.product&&Number(installed.bundleVersion)>=10&&Number(installed.bundleVersion)<16&&Number(release.build)>=16;
+ if(retiresKeyboard&&(!io.previousRelease||!io.allowUpgrade||typeof io.verifyKeyboardRetirement!=='function'))throw Error('Use the explicit verified keyboard retirement installer');
  const snapshotIO={...io,snapshotRelease:preserved};
  const before=await(io.snapshotSaved??snapshotSaved)(join(attempt,'saved-before'),snapshotIO);
+ const retiredFiles=retiresKeyboard?await io.verifyKeyboardRetirement({attempt,before,release,previous:preserved}):null;
  await io.beforeInstall?.();
  const receipt=await(io.device??device)(['install','app',app],io);
  const afterApp=await waitForInstalledMetadata(release,receipt,io);
- const after=await(io.snapshotSaved??snapshotSaved)(join(attempt,'saved-after'),snapshotIO);
- const savedData=compareSavedData(before,after,join(attempt,'saved-before'),join(attempt,'saved-after'));
- return {receipt,savedFiles:Object.keys(before).length,savedData,installedURL:afterApp.url,verifiedAt:Date.now()};
+ const after=await(io.snapshotSaved??snapshotSaved)(join(attempt,'saved-after'),retiresKeyboard?{...io,snapshotRelease:release}:snapshotIO);
+ const retained=retiresKeyboard?Object.fromEntries(Object.entries(before).filter(([path])=>!path.startsWith('keyboard/')&&!path.startsWith('shared/'))):before;
+ const savedData=compareSavedData(retained,after,join(attempt,'saved-before'),join(attempt,'saved-after'));
+ return {receipt,...(retiredFiles?{retiredFiles}:{}),savedFiles:Object.keys(retained).length,savedData,installedURL:afterApp.url,verifiedAt:Date.now()};
 }

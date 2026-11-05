@@ -3,48 +3,40 @@ import UIKit
 /// Stable viewport anchors survive paging, prepending, trimming and context returns.
 extension AppBrowseCoordinator {
     func reconcileVisibleSelection(_ table: UITableView) {
-        guard !restoring, !searching, owner.model.navigationTarget == nil,
-              let anchor = visibleAnchor(table), owner.model.selectedCategoryID != anchor.categoryID else { return }
-        updateVisibleSection(table)
+        scheduleVisibleWork(table)
     }
-    func requestVisiblePages(_ table: UITableView) {
-        guard !searching, !restoring else { return }
-        let paths = table.indexPathsForVisibleRows ?? []
-        let requests = paths.compactMap { path -> (String, Bool)? in
-            guard sections.indices.contains(path.section) else { return nil }
-            let section = sections[path.section]
-            let row = path.row - leading(section)
-            if row <= 1, case .more = section.leadingLoad { return (section.id, true) }
-            if row >= glyphRows(section) - 2, case .more = section.load { return (section.id, false) }
-            return nil
-        }
-        guard !requests.isEmpty else { return }
-        DispatchQueue.main.async { [weak self] in
-            guard let self, !self.searching else { return }
-            for (id, before) in requests {
-                if before { self.owner.model.loadPreviousPage(id) } else { self.owner.model.loadNextPage(id) }
+    func scheduleVisibleWork(_ table: UITableView) {
+        guard !searching, !restoring, !visibleWorkPending else { return }
+        visibleWorkPending = true
+        DispatchQueue.main.async { [weak self, weak table] in
+            guard let self, let table else { return }
+            self.visibleWorkPending = false
+            guard !self.searching, !self.restoring, self.owner.model.navigationTarget == nil else { return }
+            let paths = table.indexPathsForVisibleRows ?? []
+            if let anchor = self.visibleAnchor(table) {
+                self.owner.model.visibleSectionChanged(anchor.categoryID, leadingOccurrenceID: anchor.occurrenceID)
             }
-        }
-    }
-    func updateVisibleSection(_ table: UITableView) {
-        guard let anchor = visibleAnchor(table), !searching else { return }
-        DispatchQueue.main.async { [weak self] in
-            guard let self, self.owner.model.navigationTarget == nil, !self.searching,
-                  self.visibleAnchor(table)?.categoryID == anchor.categoryID else { return }
-            self.owner.model.visibleSectionChanged(anchor.categoryID, leadingOccurrenceID: anchor.occurrenceID)
+            let grouped = Dictionary(grouping: paths, by: { $0.section })
+            self.owner.model.visibleCategoryIDs = Set(grouped.keys.compactMap { self.sections.indices.contains($0) ? self.sections[$0].id : nil })
+            for (index, rows) in grouped {
+                guard self.sections.indices.contains(index), let first = rows.map({ $0.row }).min(),
+                      let last = rows.map({ $0.row }).max() else { continue }
+                self.owner.model.demandVisible(self.sections[index].id, positions: (first * self.columns)...((last + 1) * self.columns - 1))
+            }
         }
     }
     func visibleAnchor(_ table: UITableView) -> Anchor? {
         guard !searching, let path = table.indexPathsForVisibleRows?.sorted().first, sections.indices.contains(path.section) else { return nil }
         let section = sections[path.section]
-        let index = max(0, path.row - leading(section)) * columns
-        let id = section.items.indices.contains(index) ? section.items[index].id : nil
-        return Anchor(categoryID: section.id, occurrenceID: id, rowOffset: table.rectForRow(at: path).minY - table.contentOffset.y)
+        let index = path.row * columns
+        let id = section.item(at: index)?.id
+        return Anchor(categoryID: section.id, occurrenceID: id, position: index, rowOffset: table.rectForRow(at: path).minY - table.contentOffset.y)
     }
     func restore(_ anchor: Anchor, table: UITableView) {
         guard let section = sections.firstIndex(where: { $0.id == anchor.categoryID }) else { return }
         let items = sections[section].items
-        let row = anchor.occurrenceID.flatMap { id in items.firstIndex(where: { $0.id == id }) }.map { $0 / columns + leading(sections[section]) } ?? 0
+        let position = anchor.occurrenceID.flatMap { id in items.first(where: { $0.id == id })?.position } ?? anchor.position
+        let row = min(glyphRows(sections[section]) - 1, position / columns)
         setOffset(table.rectForRow(at: IndexPath(row: row, section: section)).minY - anchor.rowOffset, table: table)
     }
     func setOffset(_ value: CGFloat, table: UITableView) {
@@ -63,8 +55,8 @@ extension AppBrowseCoordinator {
             case .section:
                 setOffset(table.rectForHeader(inSection: section).minY - table.adjustedContentInset.top, table: table)
             case .occurrence(_, let target):
-                guard let index = sections[section].items.firstIndex(where: { $0.id == target.occurrenceID }) else { restoring = false; return }
-                let path = IndexPath(row: index / columns + leading(sections[section]), section: section)
+                guard let index = sections[section].items.first(where: { $0.id == target.occurrenceID })?.position else { restoring = false; return }
+                let path = IndexPath(row: index / columns, section: section)
                 table.scrollToRow(at: path, at: .middle, animated: false)
                 flash(path: path, column: index % columns, table: table)
             }

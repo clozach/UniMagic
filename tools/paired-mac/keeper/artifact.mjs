@@ -3,7 +3,7 @@ import {join,resolve} from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
 import {run} from './process.mjs';
 import {HOME,atomicJSON} from './state.mjs';
-import {signingTargets} from './signing-targets.mjs';
+import {signingTargets,embeddedKeyboardBuild} from './signing-targets.mjs';
 import {requireProduct} from './products.mjs';
 import {inspectCapabilities,groupsForTarget,requireProfileGroups} from './release-capabilities.mjs';
 export const BUNDLE='com.clozach.amaanah.alerts',TEAM='AD29JN9GKN',IDENTITY='8570B3D50CF453628EF2656136D36C7E47D47569';
@@ -20,8 +20,11 @@ export async function inspectApp(app,workspace,io={}){
  await(io.run??run)('/usr/bin/codesign',['--verify','--deep','--strict',app],io);
  const bundle=await plist(join(app,'Info.plist'),'CFBundleIdentifier',io),build=await plist(join(app,'Info.plist'),'CFBundleVersion',io),version=await plist(join(app,'Info.plist'),'CFBundleShortVersionString',io);
  if(bundle!==expectedBundle||!/^\d+$/.test(build))throw Error('Unexpected release identity');
- if(!existsSync(join(app,'corpus.sqlite'))||(!product&&!existsSync(join(app,'Assets.car'))))throw Error('Current native resources/corpus missing');
- const targets=product?product.targets:signingTargets(app,{requireKeyboard:Number(build)>=10}),profiles=[],signed=[];
+ const retired=!product&&Number(build)>=16;
+ if((!retired&&!existsSync(join(app,'corpus.sqlite')))||(!product&&!existsSync(join(app,'Assets.car'))))throw Error('Current native resources/corpus missing');
+ if(retired&&(existsSync(join(app,'corpus.sqlite'))||!['false','0'].includes(await plist(join(app,'Info.plist'),'UniMagicLegacyKeyboardRetained',io))))throw Error('Retired PowWorm package must omit its legacy corpus and keyboard');
+ const targets=product?product.targets:signingTargets(app,{requireKeyboard:embeddedKeyboardBuild(build)}),profiles=[],signed=[];
+ if(retired&&targets.some(t=>t.key==='keyboard'))throw Error('Retired keyboard still embedded');
  if(product){const actual=readdirSync(join(app,'PlugIns')).filter(name=>name.endsWith('.appex')).sort(),expected=targets.filter(t=>t.path).map(t=>t.path.split('/').at(-1)).sort();if(JSON.stringify(actual)!==JSON.stringify(expected))throw Error('Product extensions differ');}
  for(const target of targets){
   const path=join(app,target.path),profile=await profileInfo(join(path,'embedded.mobileprovision'),workspace,io);

@@ -18,12 +18,14 @@ struct PickerEnvironment {
     enum Presentation { case none, help, settings, detail(PickerGlyphItem) }
     struct State {
         var library: Library = .starting
-        var search: Search = .idle
+        var searchRevision = 0
+        var search: Search = .idle { didSet { searchRevision &+= 1 } }
         var presentation: Presentation = .none
         var categories: [BrowseCategory] = []
         var enabled: [BrowseCategory] = []
         var preferences = BrowsePreferences(catalogueRevision: "")
-        var sections: [PickerBrowseSection] = []
+        var sectionsRevision = 0
+        var sections: [PickerBrowseSection] = [] { didSet { sectionsRevision &+= 1 } }
         var selectedCategoryID = "set:Emojis"
         var navigation: BrowseNavigationTarget?
         var searchNavigation: PickerSearchNavigationTarget?
@@ -44,6 +46,7 @@ struct PickerEnvironment {
     var persistenceError: String?
     var searchGeneration = 0
     var pageGenerations: [String: Int] = [:]
+    var visibleCategoryIDs: Set<String> = []
     var sectionTouches: [String: Int] = [:]
     var touchClock = 0
     var browsingUsage: [UsageEntry] = []

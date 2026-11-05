@@ -6,39 +6,55 @@ import UIKit
     var owner: IndexedGlyphBrowser
     var sections: [PickerBrowseSection] = []
     var results: [Glyph] = []
-    var query = "", content = ""
+    var query = ""
+    private var sectionsRevision = -1, searchRevision = -1
+    private var geometry: [SectionGeometry] = []
+    var visibleWorkPending = false
+    private struct SectionGeometry: Equatable {
+        let id: String
+        let count: Int
+        let exemplar: CategoryExemplar
+    }
     var columns = 6
     var contentSizeCategory: UIContentSizeCategory?
     var restoring = false
     weak var container: IndexedBrowserContainer?
     private var chooser: UIViewController?
     var highlight: UIView?
-    struct Anchor { let categoryID: String; let occurrenceID: String?; let rowOffset: CGFloat }
+    struct Anchor { let categoryID: String; let occurrenceID: String?; let position: Int; let rowOffset: CGFloat }
     init(_ owner: IndexedGlyphBrowser) { self.owner = owner }
     var searching: Bool { !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-    func leading(_ section: PickerBrowseSection) -> Int {
-        if case .complete = section.leadingLoad { return 0 }; return 1
-    }
-    func glyphRows(_ section: PickerBrowseSection) -> Int { (section.items.count + columns - 1) / columns }
+    func glyphRows(_ section: PickerBrowseSection) -> Int { max(1, (section.displayCount + columns - 1) / columns) }
+
     func update(_ next: IndexedGlyphBrowser, container: IndexedBrowserContainer) {
         self.container = container
         let table = container.table
-        let anchor = visibleAnchor(table)
-        let oldQuery = query
         owner = next; container.update(category: next.model.selectedCategory)
-        let fingerprint = next.model.query + "|" + String(next.model.isLoading)
-            + "|" + next.model.results.map { $0.id + $0.symbol }.joined(separator: ",")
-            + "|" + next.model.sections.map { $0.id + String(describing: $0.category.exemplar) + $0.items.map(\.id).joined(separator: ",") + String(describing: $0.load) + String(describing: $0.leadingLoad) }.joined(separator: ";")
-        if content != fingerprint {
-            content = fingerprint; query = next.model.query; sections = next.model.sections; results = next.model.results
-            restoring = true; table.reloadData(); table.layoutIfNeeded()
-            if oldQuery != query { table.setContentOffset(CGPoint(x: 0, y: -table.adjustedContentInset.top), animated: false) }
-            else if let anchor { restore(anchor, table: table) }
-            restoring = false
+        let model = next.model, oldQuery = query
+        let changed = query != model.query || sectionsRevision != model.data.sectionsRevision || searchRevision != model.data.searchRevision
+        if changed {
+            let anchor = visibleAnchor(table)
+            sectionsRevision = model.data.sectionsRevision; searchRevision = model.data.searchRevision
+            query = model.query; sections = model.sections; results = searching ? model.results : []
+            let nextGeometry = sections.map { SectionGeometry(id: $0.id, count: $0.displayCount, exemplar: $0.category.exemplar) }
+            if searching || oldQuery != query || nextGeometry != geometry {
+                restoring = true; table.reloadData(); table.layoutIfNeeded()
+                if oldQuery != query { table.setContentOffset(CGPoint(x: 0, y: -table.adjustedContentInset.top), animated: false) }
+                else if let anchor { restore(anchor, table: table) }
+                restoring = false
+            } else {
+                // Page arrival updates glyphs inside existing cells. The table keeps
+                // its content size and its native deceleration trajectory.
+                for cell in table.visibleCells {
+                    guard let path = table.indexPath(for: cell) else { continue }
+                    if let row = cell as? BrowseGlyphRowCell { configure(row, at: path) }
+                    else { configureStatus(cell, at: path) }
+                }
+            }
+            geometry = nextGeometry
         }
         applyNavigation(table)
-        reconcileVisibleSelection(table)
-        requestVisiblePages(table)
+        scheduleVisibleWork(table)
     }
     func resize(_ table: UITableView) {
         let next = max(1, Int((table.bounds.width - 16) / 56))
@@ -82,9 +98,7 @@ import UIKit
     func numberOfSections(in tableView: UITableView) -> Int { searching ? 1 : sections.count }
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         if searching { return max(1, (results.count + columns - 1) / columns) }
-        let item = sections[section], rows = glyphRows(item)
-        if case .complete = item.load { return leading(item) + max(1, rows) }
-        return leading(item) + rows + 1
+        return glyphRows(sections[section])
     }
     func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat { searching ? max(36, UIFont.preferredFont(forTextStyle: .subheadline).lineHeight + 8) : BrowseSectionHeader.height }
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
@@ -94,29 +108,53 @@ import UIKit
         return header
     }
     func tableView(_ tableView: UITableView, cellForRowAt path: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "glyph-row") ?? UITableViewCell(style: .default, reuseIdentifier: "glyph-row")
-        cell.selectionStyle = .none; cell.backgroundColor = .systemBackground
-        let offset = searching ? 0 : leading(sections[path.section])
-        let start = (path.row - offset) * columns
-        let count = searching ? results.count : sections[path.section].items.count
-        if start >= 0 && start < count {
-            let end = min(start + columns, count)
-            let items = searching ? Array(results[start..<end]).map(PickerGlyphItem.search) : Array(sections[path.section].items[start..<end]).map(PickerGlyphItem.browse)
-            cell.contentConfiguration = UIHostingConfiguration {
-                GlyphRow(model: self.owner.model, items: items, columns: self.columns, host: self.owner.host, destination: self.owner.destination)
-                    .padding(.horizontal, 8)
-            }.margins(.all, 0)
-        } else {
-            cell.contentConfiguration = UIHostingConfiguration {
-                if self.searching {
-                    if self.owner.model.isLoading { ProgressView("Searching") } else { Text("No matches").foregroundStyle(.secondary) }
-                } else {
-                    let section = self.sections[path.section]
-                    self.status(section, before: start < 0)
-                }
-            }.margins(.all, 0)
+        if searching ? !results.isEmpty : sections[path.section].displayCount > 0 {
+            let row = tableView.dequeueReusableCell(withIdentifier: "glyph-row") as? BrowseGlyphRowCell ?? BrowseGlyphRowCell(style: .default, reuseIdentifier: "glyph-row")
+            row.selectionStyle = .none; row.backgroundColor = .systemBackground
+            configure(row, at: path)
+            return row
         }
+        let cell = tableView.dequeueReusableCell(withIdentifier: "browse-status") ?? UITableViewCell(style: .default, reuseIdentifier: "browse-status")
+        cell.selectionStyle = .none
+        configureStatus(cell, at: path)
         return cell
+    }
+
+    private func configure(_ row: BrowseGlyphRowCell, at path: IndexPath) {
+        let first = path.row * columns
+        let items: [PickerGlyphItem?] = (first..<(first + columns)).map { position in
+            if searching { return results.indices.contains(position) ? .search(results[position]) : nil }
+            return sections[path.section].item(at: position).map(PickerGlyphItem.browse)
+        }
+        row.configure(items: items, columns: columns, inserts: owner.host.inserts, enabled: !searching || !owner.model.isLoading)
+        row.pick = { [weak self] item in
+            guard let self else { return }
+            self.owner.model.picked(item, destination: self.owner.destination, feedback: self.owner.host.inserts ? "Inserted" : "Copied")
+        }
+        row.details = { [weak self] in self?.owner.model.openDetails($0) }
+        row.accessoryView = nil
+        if !searching, items.allSatisfy({ $0 == nil }) {
+            let section = sections[path.section]
+            let before = first < (section.items.first?.position ?? 0)
+            if case .failed = before ? section.leadingLoad : section.load {
+                let button = UIButton(type: .system)
+                button.setTitle("Retry loading characters", for: .normal)
+                button.sizeToFit()
+                button.addAction(UIAction { [weak self] _ in
+                    if before { self?.owner.model.loadPreviousPage(section.id) } else { self?.owner.model.loadNextPage(section.id) }
+                }, for: .touchUpInside)
+                row.accessoryView = button
+            }
+        }
+    }
+
+    private func configureStatus(_ cell: UITableViewCell, at path: IndexPath) {
+        let section = searching ? nil : sections[path.section]
+        cell.contentConfiguration = UIHostingConfiguration {
+            if let section { self.status(section, before: false) }
+            else if self.owner.model.isLoading { ProgressView("Searching") }
+            else { Text("No matches").foregroundStyle(.secondary) }
+        }.margins(.all, 0)
     }
     @ViewBuilder private func status(_ section: PickerBrowseSection, before: Bool) -> some View {
         switch before ? section.leadingLoad : section.load {
@@ -129,9 +167,9 @@ import UIKit
         case .complete: Text(section.category.isUtility ? "Pick a character to add it here" : "No characters in this category").font(.caption).foregroundStyle(.secondary)
         }
     }
-    func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt path: IndexPath) { requestVisiblePages(tableView) }
+    func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt path: IndexPath) { scheduleVisibleWork(tableView) }
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         guard !restoring, let table = scrollView as? UITableView else { return }
-        updateVisibleSection(table); requestVisiblePages(table)
+        scheduleVisibleWork(table)
     }
 }

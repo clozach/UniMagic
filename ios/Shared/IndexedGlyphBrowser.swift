@@ -30,12 +30,34 @@ struct IndexedGlyphBrowser: UIViewRepresentable {
 final class GlyphIndexTableView: UITableView {
     var viewportChanged: ((UITableView) -> Void)?
     private var lastSize: CGSize = .zero
+    // The table has a real row for every catalogue position, including unloaded
+    // pages. Expose the painted headers and buttons to assistive technology as
+    // the viewport moves. Enumerating offscreen placeholders can take seconds.
+    private var exposedViews: [UIView] = []
+    private func exposeVisibleRows() {
+        var elements: [UIView] = []
+        var section: Int?
+        for path in (indexPathsForVisibleRows ?? []).sorted() {
+            if section != path.section, let header = headerView(forSection: path.section) { elements.append(header) }
+            section = path.section
+            if let row = cellForRow(at: path) { elements.append(row) }
+        }
+        guard elements != exposedViews else { return }
+        exposedViews = elements
+        accessibilityElements = elements
+    }
+    override func accessibilityElementCount() -> Int { exposedViews.count }
+    override func accessibilityElement(at index: Int) -> Any? { exposedViews.indices.contains(index) ? exposedViews[index] : nil }
+    override func index(ofAccessibilityElement element: Any) -> Int {
+        exposedViews.firstIndex(where: { $0 === element as AnyObject }) ?? NSNotFound
+    }
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         if previousTraitCollection?.preferredContentSizeCategory != traitCollection.preferredContentSizeCategory { viewportChanged?(self) }
     }
     override func layoutSubviews() {
         super.layoutSubviews()
+        exposeVisibleRows()
         if bounds.size != lastSize { lastSize = bounds.size; viewportChanged?(self) }
     }
 }

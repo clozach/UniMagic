@@ -1,3 +1,4 @@
+import {embeddedKeyboardBuild} from './signing-targets.mjs';
 import {join} from 'node:path';
 import {mkdirSync} from 'node:fs';
 import {releaseCapabilities} from './release-capabilities.mjs';
@@ -7,7 +8,7 @@ import {releaseCapabilities} from './release-capabilities.mjs';
  * an inaccessible container or failed listing must stop before installation. */
 export async function snapshotExtraDomains(folder,release,device,io={}) {
  const domains=[];
- if((release?.targets??[]).includes('keyboard')||Number(release?.build)>=10)
+ if(release?.targets?release.targets.includes('keyboard'):embeddedKeyboardBuild(release?.build))
   domains.push({name:'keyboard',type:'appDataContainer',identifier:(io.product?.bundle??'com.clozach.amaanah.alerts')+'.keyboard'});
  const capabilities=releaseCapabilities(release?.capabilities,io.product?.appGroup);
  if(capabilities.kind==='unimagic-sharing')domains.push({name:'shared',type:'appGroupDataContainer',identifier:capabilities.appGroup});

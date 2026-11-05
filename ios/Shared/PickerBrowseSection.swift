@@ -8,6 +8,15 @@ struct PickerBrowseSection: Identifiable {
     var leadingLoad: Load = .complete
     var totalCount: BrowseItemCount
     var id: String { category.id }
+    var displayCount: Int { totalCount.value ?? ((items.last?.position ?? -1) + 1) }
+
+    func item(at position: Int) -> BrowseOccurrence? {
+        guard let first = items.first else { return nil }
+        let index = position - first.position
+        guard items.indices.contains(index), items[index].position == position else { return nil }
+        return items[index]
+    }
+
     var glyphs: [Glyph] { items.map(\.glyph) }
     init(category: BrowseCategory, totalCount: BrowseItemCount? = nil) {
         self.category = category
