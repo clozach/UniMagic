@@ -37,7 +37,7 @@ enum Command {
     /// Like `run`, but returns a nonzero exit status instead of throwing: some Git checks
     /// answer through their status (a merge conflict, a commit that is not an ancestor).
     static func attempt(_ executable: String, _ arguments: [String], at root: URL? = nil,
-                        quiet: Bool = false) throws -> (status: Int32, output: Data) {
+                        quiet: Bool = false, outputLimit: Int? = nil) throws -> (status: Int32, output: Data) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = [executable] + arguments
@@ -58,6 +58,9 @@ enum Command {
         publisherChildPID = process.processIdentifier
         process.waitUntilExit()
         publisherChildPID = 0
+        if let limit = outputLimit, let size = try output.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > limit {
+            throw PublisherError("The public release metadata exceeded the size limit.")
+        }
         let data = try Data(contentsOf: output)
         if !quiet {
             let errorData = (try? Data(contentsOf: errors)) ?? Data()

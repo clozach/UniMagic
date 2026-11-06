@@ -11,3 +11,4 @@ done
 node macos/build.mjs
 node macos/verify-bridge.mjs
 node macos/verify-native.mjs
+node macos/verify-picker.mjs "$PWD/macos/build/UniMagic.app"

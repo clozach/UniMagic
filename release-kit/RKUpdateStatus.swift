@@ -54,6 +54,7 @@ enum UpdateStatus {
         let product = snapshot.productName
         let name = "\(product) \(snapshot.version)"
         switch snapshot.availability {
+        case .blocked(.maintainerCopy): return "\(name) is your maintainer copy. Rebuild it to update; public releases won’t replace it."
         case .blocked(.builtFromSource): return "\(name) was built on this Mac. It changes when it is rebuilt."
         case .blocked(.unsigned): return "\(name) can't update itself: this copy has no developer signature."
         case .blocked(.movedByMacOS): return "\(name) can't update itself from here. Move it to your Applications folder, then open it again."
@@ -117,7 +118,7 @@ enum UpdateStatus {
     }
 
     private static func currentRecord(_ snapshot: Snapshot) -> UpdateRecord? {
-        guard let record = snapshot.lastUpdate, AppVersion(record.to) == snapshot.version else { return nil }
+        guard snapshot.availability != .blocked(.maintainerCopy), let record = snapshot.lastUpdate, AppVersion(record.to) == snapshot.version else { return nil }
         return record
     }
 }

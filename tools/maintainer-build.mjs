@@ -22,6 +22,6 @@ export function configureMaintainer(root, app) {
     ['UniMagicContentFingerprint', '-string', fingerprint],
     ['UniMagicPublisherEnabled', '-bool', 'YES'],
     ['UniMagicPublisherTool', '-string', helper],
-    ['UniMagicMaintainerUpdateFeed', '-string', 'https://api.github.com/repos/clozach/UniMagic/releases/latest'],
+    ['UniMagicMaintainerUpdateFeed', '-string', 'https://api.github.com/repos/clozach/UniMagic/releases?per_page=12'],
   ]) execFileSync('plutil', ['-insert', key, type, value, info]);
 }

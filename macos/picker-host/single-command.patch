@@ -1,0 +1,219 @@
+diff --git a/Tinycast/Features/Extensions/Model/ExtensionBootConfig.swift b/Tinycast/Features/Extensions/Model/ExtensionBootConfig.swift
+index b236413..9dd8917 100644
+--- a/Tinycast/Features/Extensions/Model/ExtensionBootConfig.swift
++++ b/Tinycast/Features/Extensions/Model/ExtensionBootConfig.swift
+@@ -24,7 +24,9 @@ struct ExtensionBootConfig: Sendable {
+         variables["PATH"] =
+             (variables["PATH"].map { $0 + ":" } ?? "")
+             + "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+-        variables["HOME"] = FileManager.default.homeDirectoryForCurrentUser.path
++        let fixtureHome = info.environment["UNIMAGIC_FIXTURE"] == "1" ? info.environment["UNIMAGIC_FIXTURE_HOME"] : nil
++        let home = fixtureHome ?? FileManager.default.homeDirectoryForCurrentUser.path
++        variables["HOME"] = home
+ 
+         return ExtensionBootConfig(
+             arch: arch,
+@@ -32,7 +34,7 @@ struct ExtensionBootConfig: Sendable {
+             hostname: info.hostName,
+             username: NSUserName(),
+             shell: info.environment["SHELL"] ?? "/bin/zsh",
+-            homeDirectory: FileManager.default.homeDirectoryForCurrentUser.path,
++            homeDirectory: home,
+             temporaryDirectory: FileManager.default.temporaryDirectory.path,
+             workingDirectory: supportDirectory.path,
+             totalMemory: Double(info.physicalMemory),
+diff --git a/Tinycast/Features/Extensions/Service/ExtensionCatalog.swift b/Tinycast/Features/Extensions/Service/ExtensionCatalog.swift
+index 59b6662..b9f8bc9 100644
+--- a/Tinycast/Features/Extensions/Service/ExtensionCatalog.swift
++++ b/Tinycast/Features/Extensions/Service/ExtensionCatalog.swift
+@@ -114,23 +114,10 @@ enum ExtensionCatalog {
+ 
+     /// An unreadable or half-written directory is skipped rather than failing the whole scan.
+     nonisolated static func scan() -> [InstalledExtension] {
+-        let root = extensionsDirectory()
+-        let entries =
+-            (try? FileManager.default.contentsOfDirectory(
+-                at: root, includingPropertiesForKeys: [.isDirectoryKey, .addedToDirectoryDateKey],
+-                options: [.skipsHiddenFiles])) ?? []
+-        return
+-            entries
+-            .compactMap { directory -> InstalledExtension? in
+-                try? restoreExecutablePermissions(in: directory)
+-                guard let manifest = try? ExtensionManifest.load(directory: directory),
+-                    manifest.supportsMacOS
+-                else { return nil }
+-                let added = try? directory.resourceValues(forKeys: [.addedToDirectoryDateKey])
+-                return InstalledExtension(
+-                    manifest: manifest, directory: directory, installedAt: added?.addedToDirectoryDate)
+-            }
+-            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
++        let directory = SingleCommandMain.commandDirectory
++        guard let manifest = try? ExtensionManifest.load(directory: directory),
++              manifest.name == "unimagic", manifest.supportsMacOS else { return [] }
++        return [InstalledExtension(manifest: manifest, directory: directory, installedAt: nil)]
+     }
+ 
+     /// GitHub's raw-file downloads lose mode bits, so restore runnable helper assets by content.
+diff --git a/Tinycast/Features/Extensions/Service/ExtensionHostBridge.swift b/Tinycast/Features/Extensions/Service/ExtensionHostBridge.swift
+index 3264b6b..94642f5 100644
+--- a/Tinycast/Features/Extensions/Service/ExtensionHostBridge.swift
++++ b/Tinycast/Features/Extensions/Service/ExtensionHostBridge.swift
+@@ -239,11 +239,11 @@ final class ExtensionHostBridge: ExtensionHostAPI {
+                 }
+             } else if options["keepWindowOpen"]?.boolValue == true {
+                 // A Tinycast extension to the API: the palette stays up for a run of pastes.
+-                Paster.pasteStringInPlace(text, into: context?.pasteTarget)
++                SingleCommandMain.requestPaste(text, keeping: true, target: context?.pasteTarget)
+             } else {
+                 let target = context?.pasteTarget
+                 context?.closeMainWindow(clearRootSearch: false)
+-                Paster.pasteString(text, previousApp: target)
++                SingleCommandMain.requestPaste(text, keeping: false, target: target)
+             }
+             return nil
+ 
+diff --git a/Tinycast/Features/Extensions/UI/ExtensionCoordinator.swift b/Tinycast/Features/Extensions/UI/ExtensionCoordinator.swift
+index 1a64723..6d30b08 100644
+--- a/Tinycast/Features/Extensions/UI/ExtensionCoordinator.swift
++++ b/Tinycast/Features/Extensions/UI/ExtensionCoordinator.swift
+@@ -326,14 +326,13 @@ final class ExtensionCoordinator {
+     func popExtensionToRoot() {
+         Task {
+             await extensions.stop()
+-            palette.prepare(mode: .launcher)
++            paletteCoordinator.hidePalette()
+         }
+     }
+ 
+     func showExtensionSettings(for owner: InstalledExtension) {
+         paletteCoordinator.hidePalette(restoreFocus: false)
+-        settingsCoordinator.showSettings(
+-            tab: .extensions, revealing: .row(.extensionsInstalled, owner.manifest.name))
++        SingleCommandMain.reply("settings")
+     }
+ 
+     // MARK: - Host callbacks, routed here so the manager never touches a window itself
+diff --git a/Tinycast/Features/HotKeys/Service/HotKeyManager.swift b/Tinycast/Features/HotKeys/Service/HotKeyManager.swift
+index 5c1d8a6..ccaa1e2 100644
+--- a/Tinycast/Features/HotKeys/Service/HotKeyManager.swift
++++ b/Tinycast/Features/HotKeys/Service/HotKeyManager.swift
+@@ -182,7 +182,10 @@ final class HotKeyManager {
+         }
+     }
+ 
+-    func binding(for action: HotKeyAction) -> HotKeyBinding? { bindings[action] }
++    func binding(for action: HotKeyAction) -> HotKeyBinding? {
++        if action == .extensionCommand(entryID: SingleCommandMain.entry) { return .combo(SingleCommandMain.chord) }
++        return nil
++    }
+ 
+     private func storedBinding(for action: HotKeyAction) -> HotKeyBinding? {
+         guard
+diff --git a/Tinycast/Palette/PaletteCoordinator.swift b/Tinycast/Palette/PaletteCoordinator.swift
+index 53413f7..3865141 100644
+--- a/Tinycast/Palette/PaletteCoordinator.swift
++++ b/Tinycast/Palette/PaletteCoordinator.swift
+@@ -86,6 +86,7 @@ final class PaletteCoordinator {
+     func showPalette(
+         mode: PaletteMode, restoreAnyMode: Bool = false, seeding query: String? = nil
+     ) {
++        guard mode == .extensionCommand else { hidePalette(); return }
+         let preserved = windowController.consumePreservedState()
+         let restoring = preserved && (restoreAnyMode || palette.mode == mode)
+         // Resetting a screen the pop to root already reset would only re-render the whole palette.
+diff --git a/Tinycast/Palette/PaletteWindowController.swift b/Tinycast/Palette/PaletteWindowController.swift
+index 5760b5b..da51268 100644
+--- a/Tinycast/Palette/PaletteWindowController.swift
++++ b/Tinycast/Palette/PaletteWindowController.swift
+@@ -26,7 +26,7 @@ final class PaletteWindowController: NSObject, NSWindowDelegate {
+     private lazy var commandEscapeTap = CommandEscapeTap { [weak self] in
+         guard let self, self.panel?.isKeyWindow == true else { return }
+         if self.core.appSwitchCoordinator.escapeWhileSwitching() { return }
+-        self.core.palette.prepare(mode: .launcher)
++        self.core.paletteCoordinator.hidePalette()
+     }
+ 
+     private struct DragSession {
+@@ -86,10 +86,8 @@ final class PaletteWindowController: NSObject, NSWindowDelegate {
+             core.inputSourceSwitcher.beginSession(
+                 preferredInputSourceID: core.settings.autoSwitchInputSourceID)
+             // Events go stale while the palette is closed, and the countdown only ticks while up.
+-            core.calendarCoordinator.paletteDidShow()
+             core.palette.noteVisible(true)
+-            core.audioActivity.start()
+-            core.clipboardStore.setTextSearchActive(true)
++            SingleCommandMain.reply("visible")
+             if core.paletteIsNonKey {
+                 panel.orderFrontRegardless()
+                 return
+@@ -160,11 +158,8 @@ final class PaletteWindowController: NSObject, NSWindowDelegate {
+         NotesPanel.refusesInheritedKey = false
+         commandEscapeTap.disable()
+         core.inputSourceSwitcher.endSession()
+-        core.calendarCoordinator.paletteDidHide()
+-        core.roomCoordinator.paletteDidHide()
+         core.palette.noteVisible(false)
+-        core.audioActivity.stop()
+-        core.clipboardStore.setTextSearchActive(false)
++        SingleCommandMain.reply("hidden")
+         // Drop the anchor, so the next summon re-resolves for the screen in use then.
+         anchor = nil
+         // The guides must never outlive the panel they point at.
+@@ -478,7 +473,7 @@ final class PaletteWindowController: NSObject, NSWindowDelegate {
+             guard let character = Self.commandCharacter(from: event) else { return false }
+             switch character {
+             case ",":
+-                self.core.settingsCoordinator.showSettings()
++                SingleCommandMain.reply("settings")
+                 return true
+             // Pin. Swallowed on every screen, since ⌘. only ever means cancel to a search field.
+             case ".":
+diff --git a/Tinycast/Palette/RootPaletteView.swift b/Tinycast/Palette/RootPaletteView.swift
+index b445cd0..0560ca0 100644
+--- a/Tinycast/Palette/RootPaletteView.swift
++++ b/Tinycast/Palette/RootPaletteView.swift
+@@ -209,39 +209,11 @@ struct RootPaletteView: View {
+     }
+ 
+     private var appMenuContent: PopoverMenuContent {
+-        let appName = Bundle.main.appDisplayName
+-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+-        let title = version.map { "\(appName) v\($0)" } ?? appName
+-        return PopoverMenuContent(
+-            header: title,
+-            items: [
+-                PopoverMenuItem(
+-                    title: String(localized: "Changelog"),
+-                    systemImage: "clock.arrow.trianglehead.2.counterclockwise.rotate.90"
+-                ) {
+-                    if let url = URL(string: "https://github.com/abue-ammar/tinycast/releases") {
+-                        openURL(url)
+-                    }
+-                },
+-                PopoverMenuItem(title: String(localized: "About Tinycast"), systemImage: "info.circle") {
+-                    core.settingsCoordinator.showAbout()
+-                },
+-                PopoverMenuItem(title: String(localized: "Support Tinycast"), systemImage: "heart") {
+-                    core.supportCoordinator.showSupport()
+-                },
+-                PopoverMenuItem(
+-                    title: String(localized: "Settings"), systemImage: "gearshape", shortcut: "⌘,"
+-                ) {
+-                    core.settingsCoordinator.showSettings()
+-                },
+-                PopoverMenuItem(
+-                    title: String(localized: "Quit \(appName)"),
+-                    systemImage: "rectangle.portrait.and.arrow.right",
+-                    isDestructive: true
+-                ) {
+-                    NSApp.terminate(nil)
+-                }
+-            ])
++        PopoverMenuContent(header: "UniMagic", items: [
++            PopoverMenuItem(title: "Settings…", systemImage: "gearshape") {
++                SingleCommandMain.reply("settings")
++            }
++        ])
+     }
+ 
+     /// The one source every menu path addresses rows through, so none can disagree.

@@ -82,10 +82,12 @@ struct Candidate {
         Command.log("Checking that the candidate contains every public change since \(latest.tag).")
         try PublicSource.checkEarly(snapshot, sourceDigest: sourceDigest, release: latest, tag: "v\(version)")
         let testLog = folder.appendingPathComponent("tests.log")
-        // The GUI remains running while preparing. Give every fixture its own
-        // temporary preview directory instead of clearing the live app's cache.
-        let testRuntime = snapshot.appendingPathComponent(".build/test-runtime", isDirectory: true)
-        try FileManager.default.createDirectory(at: testRuntime, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        // Fixtures need an isolated, short path for Unix-domain sockets. A frozen
+        // source path can exceed macOS's socket pathname limit before tsx starts.
+        let testRuntime = URL(fileURLWithPath: "/tmp", isDirectory: true)
+            .appendingPathComponent("release-checks-" + UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: testRuntime, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+        defer { try? FileManager.default.removeItem(at: testRuntime) }
         var log = Data()
         for (index, test) in PublisherProduct.current.testScripts.enumerated() {
             let step = ["test-core", "test-install", "test-update"][min(index, 2)]

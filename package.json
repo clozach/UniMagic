@@ -1,6 +1,6 @@
 {
   "name": "unimagic",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Native Unicode picker for macOS and iOS, with offline search and learned words",
   "main": "main.js",
   "scripts": {

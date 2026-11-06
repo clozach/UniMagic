@@ -11,31 +11,49 @@ import {captureRelease} from './artifact.mjs';
 import {run} from './process.mjs';
 import {compareRelease} from './release-version.mjs';
 import {requireSafeZip} from './zip-safety.mjs';
-const repo='clozach/UniMagic',api='https://api.github.com/repos/'+repo+'/releases/latest';
+const repo='clozach/UniMagic',api='https://api.github.com/repos/'+repo+'/releases?per_page=12';
 const DAY=86400000;
 
-async function githubRelease(io){
+/** The legacy /latest must continue serving the app that can run on macOS 14–15. */
+export function officialStableRelease(rows) {
+ if(!Array.isArray(rows)||rows.length>12)throw Error('Invalid or oversized GitHub release list');
+ let newest;
+ for(const row of rows){
+  if(!row||row.draft!==false||row.prerelease!==false||!Array.isArray(row.assets))continue;
+  const match=/^v((?:0|[1-9]\d{0,7})\.(?:0|[1-9]\d{0,7})\.(?:0|[1-9]\d{0,7}))$/.exec(row.tag_name??'');
+  if(!match)continue;
+  const version=match[1],name=`UniMagic-${version}-macOS-arm64.zip`;
+  const matches=row.assets.filter(asset=>asset?.name===name);
+  if(!matches.length)continue;
+  const url=`https://github.com/${repo}/releases/download/v${version}/${name}`, asset=matches[0];
+  if(matches.length!==1||asset.state!=='uploaded'||!Number.isSafeInteger(asset.size)||asset.size<1||
+     asset.size>100*1024*1024||asset.browser_download_url!==url)throw Error('Invalid or ambiguous official Mac release archive');
+  if(!newest||compareRelease({version,build:0},{version:newest.version,build:0})>0)newest={version,url};
+ }
+ if(!newest)throw Error('No stable UniMagic release with a complete Mac archive');
+ return newest;
+}
+async function boundedBytes(response,maximum){
+ if(Number(response.headers.get('content-length'))>maximum){await response.body?.cancel();throw Error('GitHub transfer exceeds its size limit');}
+ const reader=response.body.getReader(),chunks=[];let length=0;
+ try{while(true){
+  const {value,done}=await reader.read();if(done)break;length+=value.length;
+  if(length>maximum){await reader.cancel();throw Error('GitHub transfer exceeds its size limit');}
+  chunks.push(value);
+ }}finally{reader.releaseLock();}
+ return Buffer.concat(chunks);
+}
+export async function githubRelease(io){
  const response=await(io.fetch??fetch)(api,{headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},signal:AbortSignal.timeout(20000)});
  if(!response.ok)throw Error('GitHub release lookup returned '+response.status);
- const release=await response.json(),match=/^v(\d+\.\d+\.\d+)$/.exec(release.tag_name??'');
- if(!match||release.draft||release.prerelease||!Array.isArray(release.assets))throw Error('Invalid official UniMagic release');
- const version=match[1],name=`UniMagic-${version}-macOS-arm64.zip`,assets=release.assets.filter(a=>a.name===name);
- if(assets.length!==1)throw Error('Official Mac release archive missing or ambiguous');
- const url=`https://github.com/${repo}/releases/download/v${version}/${name}`;
- if(assets[0].browser_download_url!==url)throw Error('Unexpected release archive location');
- return {version,url};
+ return officialStableRelease(JSON.parse((await boundedBytes(response,1024*1024)).toString('utf8')));
 }
 async function downloadRelease(release,workspace,io){
  const response=await(io.fetch??fetch)(release.url,{signal:AbortSignal.timeout(120000)});
  if(!response.ok)throw Error('Official release download returned '+response.status);
  const host=new URL(response.url||release.url).hostname;
  if(!['github.com','release-assets.githubusercontent.com','objects.githubusercontent.com'].includes(host))throw Error('Unexpected download redirect');
- const maximum=250*1024*1024;
- if(Number(response.headers.get('content-length'))>maximum){await response.body.cancel('Release archive exceeds limit');throw Error('Release archive exceeds limit');}
- const chunks=[];let length=0;
- const reader=response.body.getReader();
- try{while(true){const {value,done}=await reader.read();if(done)break;length+=value.length;if(length>maximum){await reader.cancel('Release archive exceeds limit');throw Error('Release archive exceeds limit');}chunks.push(value);}}finally{reader.releaseLock();}
- const bytes=Buffer.concat(chunks);requireSafeZip(bytes,'UniMagic.app');
+ const bytes=await boundedBytes(response,250*1024*1024);requireSafeZip(bytes,'UniMagic.app');
  const archive=join(workspace,'Mac.zip');writeFileSync(archive,bytes,{mode:0o600});
  const extracted=join(workspace,'mac');mkdirSync(extracted,{mode:0o700});
  await(io.run??run)('/usr/bin/ditto',['-x','-k',archive,extracted],io);

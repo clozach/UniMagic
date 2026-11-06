@@ -43,6 +43,9 @@ import Darwin
             let state=temp.appendingPathComponent(scenario);try fm.createDirectory(at:state,withIntermediateDirectories:true);setenv("INITIAL_ROOT",state.path,1)
             let source=try makeSource(),running=try ContentIdentity.local(source)
             let candidate=try Candidate.prepare(root:source,running:running),receipt=try digest(candidate.manifest)
+            let runtime = try String(contentsOf: state.appendingPathComponent("test-runtime"), encoding: .utf8)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            check(!fm.fileExists(atPath: runtime), "\(scenario) short isolated test runtime is removed after preparation")
             let frozen=try Data(contentsOf:candidate.manifest),archive=try digest(candidate.archive),sourceDigest=try Candidate.treeDigest(candidate.source)
             func publish()throws->[String:Any]{try candidate.publish(root:source,running:running,approvedDigest:archive,approvedReceipt:receipt)}
             switch scenario {
@@ -77,7 +80,14 @@ import Darwin
         try write("// original source\n",source.appendingPathComponent("App.swift"));try write("1.0.0\n",source.appendingPathComponent("VERSION"))
         try write("# Changes\n\n## Unreleased\n\nFirst reviewed release.\n",source.appendingPathComponent("CHANGES.md"));try write(".build/\n",source.appendingPathComponent(".gitignore"))
         try write("icon",source.appendingPathComponent("Resources/AppIcon.icns"));try write("#!/bin/bash\ntrue\n",source.appendingPathComponent("tools/build.sh"))
-        for file in ["test.sh","test-install.sh","test-update.sh"]{try write("#!/bin/bash\ntrue\n",source.appendingPathComponent("tools/"+file))}
+        let test = """
+        #!/bin/bash
+        set -eu
+        [[ ${#TMPDIR} -lt 70 && -d "$TMPDIR" && "$CLIPEDGE_TEST_PREVIEW_ROOT/" == "$TMPDIR" ]]
+        [[ $(stat -f %Lp "$TMPDIR") == 700 ]]
+        printf '%s\\n' "$TMPDIR" > "$INITIAL_ROOT/test-runtime"
+        """
+        for file in ["test.sh","test-install.sh","test-update.sh"]{try write(test,source.appendingPathComponent("tools/"+file))}
         try write("#!/bin/bash\nset -eu\nmkdir -p \"$1/tools\" \"$1/Resources\"\ncp App.swift VERSION CHANGES.md .gitignore \"$1/\"\ncp tools/*.sh \"$1/tools/\"\ncp Resources/AppIcon.icns \"$1/Resources/\"\n",source.appendingPathComponent("tools/export-source.sh"))
         try write("""
         #!/bin/bash

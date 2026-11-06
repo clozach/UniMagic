@@ -29,5 +29,6 @@
   "releaseScript": "tools/release.sh",
   "archiveTemplate": ".build/releases/UniMagic-{version}-macOS-arm64.zip",
   "appTemplate": ".build/releases/UniMagic-{version}.app",
-  "allowInitialRelease": true
+  "allowInitialRelease": true,
+  "preserveLatestTag": "v1.0.3"
 }

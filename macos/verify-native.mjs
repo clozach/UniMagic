@@ -12,7 +12,7 @@ try {
 const command=process.argv[2];fs.appendFileSync(process.env.UNIMAGIC_LIBRARY+'/calls.jsonl',JSON.stringify({command,manual:process.argv.includes('--manual'),forced:process.argv.includes('--force')})+'\\n');
 console.log(JSON.stringify(command==='renew'?{kind:'healthy',expiresAt:Date.now()+604800000}:{kind:'off',message:'Synthetic phone consent is off.'}));`);
  writeFileSync(join(contents,'Info.plist'),'<?xml version="1.0"?><plist version="1.0"><dict><key>CFBundleExecutable</key><string>Checks</string><key>CFBundleIdentifier</key><string>com.clozach.unimagic.fixture</string></dict></plist>');
- const sources=['Bridge.swift','PickerModel.swift','ReleaseSettings.swift','PhoneUpdateService.swift','PasteDestination.swift','KeeperCommand.swift','tests/ModelChecks.swift'].map(p=>'macos/'+p);
+ const sources=['Bridge.swift','SettingsModel.swift','PickerProcess.swift','DesktopPaste.swift','ReleaseSettings.swift','PhoneUpdateService.swift','KeeperCommand.swift','tests/ModelChecks.swift'].map(p=>'macos/'+p);
  execFileSync('swiftc',['-O','-parse-as-library',...sources,...readdirSync('release-kit').filter(p=>p.endsWith('.swift')).map(p=>'release-kit/'+p),'-o',join(bin,'Checks'),'-framework','AppKit','-framework','SwiftUI','-framework','Security'],{stdio:'inherit'});
  const repetitions=Number(process.env.UNIMAGIC_NATIVE_REPEAT??1);if(!Number.isInteger(repetitions)||repetitions<1||repetitions>50)throw new Error('UNIMAGIC_NATIVE_REPEAT must be1–50');
  for(let iteration=0;iteration<repetitions;iteration++){

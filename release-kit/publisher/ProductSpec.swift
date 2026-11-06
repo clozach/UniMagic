@@ -16,6 +16,8 @@ struct PublisherProduct: Decodable {
     var archiveTemplate: String
     var appTemplate: String
     var allowInitialRelease: Bool
+    /// New releases stay off the legacy GitHub /latest endpoint when set.
+    var preserveLatestTag: String? = nil
     var excludePrefixes: [String]? = nil
     var sourceMappings: [String: String]? = nil
     static var current = PublisherProduct(name: "ClipEdge", repository: "clozach/ClipEdge", bundleIdentifier: "local.codex.ClipEdge",

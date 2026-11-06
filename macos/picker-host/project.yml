@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: PickerHost
+options:
+  deploymentTarget:
+    macOS: "26.0"
+targets:
+  PickerHost:
+    type: application
+    platform: macOS
+    sources:
+      - path: Tinycast
+        excludes:
+          - App/AppDelegate.swift
+          - App/TinycastApp.swift
+          - Features/Clipboard/Service/ClipboardTextExtractor.swift
+          - Features/Clipboard/Service/ClipboardTextHelper.swift
+          - Features/Dictation/Helper
+          - Features/FileSearch/Helper
+          - Resources/EmojiKeywords
+          - Resources/Localizable.xcstrings
+          - Resources/InfoPlist.xcstrings
+          - tinycast.icon
+          - Info.plist
+          - Tinycast.entitlements
+      - path: SingleCommandMain.swift
+      - path: HostInteraction.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.clozach.unimagic.mac.picker
+        PRODUCT_MODULE_NAME: Tinycast
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_LSUIElement: YES
+        INFOPLIST_KEY_CFBundleDisplayName: UniMagic Picker
+        SWIFT_VERSION: "6.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+        DEAD_CODE_STRIPPING: YES
+        MACOSX_DEPLOYMENT_TARGET: "26.0"

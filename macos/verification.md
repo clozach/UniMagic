@@ -1,23 +1,46 @@
-# Native Mac delivery verification
+# Verify the Mac picker
 
-The source builds with `node esbuild.tinycast.mjs && node macos/build.mjs`; the development app is `macos/build/UniMagic.app` with bundle ID `com.clozach.unimagic.mac`, version1.0.0 build1. The nested Node executable and outer app pass `codesign --verify --deep --strict`. Node's dynamic dependencies are system frameworks/libraries only; its complete140KB upstream multi-license LICENSE ships beside it. Production packaging, sealed phone payload, final signing, public export, installed migration and hotkey transition belong to the parent delivery run.
+Run from the source root after building the app:
 
-Validation: all175 TypeScript tests pass across20files; the three focused suites pass15tests. Typecheck passes. `node macos/verify-bridge.mjs` drives the actual bundled engine with an isolated synthetic library and proves354categories, empty new history, literal/prefix/codepoint recall, detail encodings, teach/unlearn ranking, exact pick history, variants and visibility. Shared store tests cover two byte-exact legacy files, preserving unknown fields/newer destination, busy-lock refusal, malformed-source preservation and discovery through an arbitrary registered vault path. Tinycast's filesystem shim was inspected: it supports atomic mkdir/rename and Buffer.equals but lacks fsyncSync; the shared migration flushes on Node where available and retains atomic rename on Tinycast.
+```sh
+node macos/verify-bridge.mjs
+node macos/verify-native.mjs
+node macos/verify-picker.mjs macos/build/UniMagic.app /tmp/unimagic-picker-proof
+```
 
-Native fixture captures live outside the vault at `/tmp/unimagic-native-{light,dark,detail-light,detail-dark,settings-light,settings-dark,categories-light,categories-dark}.png`. They use only `/tmp/unimagic-native-fixture` and disable global shortcut registration, insertion and phone timer. The app is new; these are after captures, with no invented native-before baseline. Parent owns the final Changes deck and any meaningful existing-host comparison. Capture code terminates only fixture capture processes after writing, leaving no watcher or production install.
+The last command starts the actual bundled PickerHost process using a temporary synthetic home and its own non-key palette. It sends window-local events, reads the focused AppKit field editor and the Tinycast render tree, captures the light and dark windows, and closes the helper by closing its input pipe. It does not post system keyboard events or paste into other apps. The fixtures use a disposable library and disable the global shortcut. The bridge and settings fixtures cover persisted category changes, external category changes, serialized keeper checks and the phone renewal cadence.
 
-Cohesion: native sources were formatted with Xcode's swift-format. PickerView initially exceeded200lines and contained independent detail rendering; that mechanical seam is now DetailView.swift, and the CLI build passed afterward. The fixture capture harness was also moved mechanically into FixtureCapture.swift when App.swift exceeded200lines; the production lifecycle stays separate from synthetic evidence. PickerModel's11methods coordinate one host state machine/bridge boundary and stay together. DesktopBrowse remains one catalogue/history projection with no automatic private screenshot seed. No public personal store/sample was added.
+Use these gestures in either host to check the visible result:
 
-Parent integration checks: build the full shared release/helper payload; verify actual Mac two-file migration against originals before disabling Obsidian; import the optional copied Tinycast command with its empty default library preference; release Tinycast's old shortcut before registering the native shortcut; test real copy/paste and Accessibility refusal; exercise the bundled paired-phone CLI with phone-owned consent; then create the release visuals and sign/publish/install. Mac Settings includes the actual shared UpdateController/PublishController, while phone Settings reports the keeper result and cannot enable phone consent.
+- Invoke the picker twice without another interaction. The second press dismisses it.
+- Search for `arrow`. Scroll past the end of the first batch and continue through the results.
+- With the caret at the end of the search text, press ⌘A and type `x`. Only `x` should remain.
+- Clear the focused search field and press Right. The selection should move one tile.
+- Navigate to 👋, press ⌃⌘Space and choose a tone. Escape returns to that search.
+- Open Settings from the menu or `unimagic://settings`. Change a category, check update consent and read the version in the lower corner.
+- With Tinycast owning its configured chord, use its shortcut to open the integrated command. Open the standalone app directly, navigate in its palette and repeat the chord there.
+- To check delivery manually, invoke UniMagic over a disposable editor, insert a glyph and try ⌘Return to keep the picker open. Without Accessibility permission UniMagic copies the glyph and explains how to allow insertion.
 
-Reviewer corrections are verified with `node macos/verify-native.mjs`: single-click routes to insertion, an explicit chevron/context action/Tab opens details, selection or query changes invalidate pending details, and Return uses the highlighted selection instead of stale detail A. Native model tests run against the actual bundled engine in an isolated temporary app/store. Paste posting requires successful activation of the live original destination and checks its frontmost PID plus unchanged clipboard immediately before posting; native pure checks cover changed/nil/terminated targets and changed clipboard. No actual keystroke is sent by these tests. Shared update replacement defers while native bridge requests or a paired-phone operation are pending.
+The standalone helper has a separate bundle identity. It sends normal and keep-open text insertions back to the signed UniMagic controller. The controller validates the captured target process and current pasteboard contents before posting a PID-specific ⌘V. The isolated fixture does not validate macOS permission on a particular user's live machine.
 
-Runtime is pinned to Node22.21.1. A build under a different selected runtime fails before modifying output; `UNIMAGIC_NODE` may select the installed22.21.1 executable while the builder itself runs under another Node. Both a successful22 build and a refused24.15.0 build were checked. The signed bundled runtime reports22.21.1 and still depends only on system frameworks/dylibs. The bridge catches startup failures with a bounded diagnostic rather than dumping a minified corpus-containing source line; malformed synthetic personalization startup exits1 with a short diagnostic.
+## November 5 verification
 
-The foreground phone cycle serializes a frozen `renew` stage at six-hour cadence independently of feature-update consent, followed by `check-updates`; manual checking adds `--manual` only to feature discovery and may retry a failed renewal. It never passes `--force` or uses consent as renewal authority. A synthetic keeper in the native model test proves an OFF feature result still follows a frozen renewal, overlapping cycles are suppressed, the immediate next healthy cycle skips renewal, and manual discovery receives its flag. This coexists with Al’s separate900second vault renewal adapter through the same keeper lock; neither sends alerts. All root `licenses/` notices (MiniSearch, emojibase, EmojiOne) and root LICENSE are bundled alongside Node’s exact full license.
+The independent standalone fixture passed in light and dark appearances against public Tinycast commit `250280455c682c310b45459cde42e87ffc5f2323`. Actual appearance readbacks were `NSAppearanceNameAqua` and `NSAppearanceNameDarkAqua`.
 
-The parent reconciled the annual-artifact assertion and test-runner include filter; its final root run reports all175 TypeScript tests passing. Native bridge/model checks and typecheck were independently rerun after the reviewer fixes.
+Verified through the real bundled extension and native panel:
 
-### Publisher regression: late startup refresh
+- The untouched second shortcut invocation hides the picker.
+- Scrolling the native viewport to the loaded edge increases the item count beyond 200.
+- ⌘A changes the focused field’s selection from a caret at 5 to range 0…5. Typing x replaces arrow.
+- With the empty field still focused, Right moves the selected grid cell.
+- The selected U+1F44B opens six skin tones through the original command action.
+- Escape returns to the exact query and selected glyph.
+- The Settings model persists category visibility and sees an externally updated category file.
+- Both paste modes use the fixture-only pasteboard without changing the system pasteboard.
+- The assembled bundle passes deep, strict code-signature verification and its helper links only system libraries. The minimum system is 26.0 and the URL scheme is unimagic.
 
-A nested publisher temporary directory exposed a real selection race, not a path failure. With visible assertion diagnostics, the uncorrected model failed on repetition3: a late initial category read triggered another result reload and reset highlighted B to first result A before Return. Startup now reloads only if its initial query/interaction revisions remain current; presentation refreshes guard both revisions and preserve unchanged selections, discarding stale refresh results after a newer interaction. Native checks additionally cover a pending presentation refresh, unchanged refresh selection, and external category visibility readback. All20 repeated runs using the publisher’s nested temporary-directory and preview-root conditions pass after the fix. Assertions remain active and now print source/state diagnostics instead of an unlabeled optimized trap. The repeat option gives every run an independent synthetic library. README reviewed: its native validation instructions now document this diagnostic/repeat workflow.
+The window-local tests avoid sending system keyboard events and avoid activating any of the user’s applications. Therefore they do not establish a particular live Accessibility grant or physical paste into another app. The parent release verification owns signed installation and coexistence with the live launcher.
+
+The forced-dark bitmap fixture reports DarkAqua but SwiftUI’s primary footer label can retain the system color scheme when the view is captured without activation. Treat that bitmap’s footer contrast as a capture limitation until compared with the displayed window.
+
+Cohesion review found the source files under 200 lines. The controller owns app entry points, the picker process owns the helper lifetime/pipe, the shortcut owns global registration and launcher handoff, and the paste service owns target validation. These are separate runtime concerns. The retired standalone grid/detail models and views are removed.

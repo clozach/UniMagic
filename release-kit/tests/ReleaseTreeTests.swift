@@ -66,11 +66,32 @@ import Darwin
         refuses("manifest mismatch remains rejected after directory skip"){_=try PublishedRelease.latest()}
         try writeJSON(manifest,to:root.appendingPathComponent("manifest.json"))
         check(try PublishedRelease.latest().fingerprint==fingerprint,"valid manifest recovers without modifying source")
+        // On new UniMagic copies, Publish follows all stable releases, but /latest must stay pinned.
+        product.preserveLatestTag = "v1.0.3"; PublisherProduct.current = product
+        var pinned = latest; pinned["tag_name"] = "v1.0.3"; try writeJSON(pinned,to:root.appendingPathComponent("latest.json"))
+        func row(_ tag:String, draft:Bool = false, prerelease:Bool = false) -> [String:Any] {
+            var record = latest; record["tag_name"] = tag; record["draft"] = draft; record["prerelease"] = prerelease
+            let version = String(tag.dropFirst())
+            let name = "UniMagic-\(version)-macOS-arm64.zip"
+            var archive = (record["assets"] as! [[String:Any]])[0]
+            archive["name"] = name; archive["state"] = "uploaded"
+            archive["browser_download_url"] = "https://github.com/\(product.repository)/releases/download/\(tag)/\(name)"
+            record["assets"] = [archive, (record["assets"] as! [[String:Any]])[1]]; return record
+        }
+        let listed = [row("v1.0.1"),row("v2.0.0", draft:true),row("v2.1.0",prerelease:true),row("v1.0.0")]
+        try JSONSerialization.data(withJSONObject:listed).write(to:root.appendingPathComponent("list.json"))
+        check(try PublishedRelease.latest().tag == "v1.0.1","bounded list verifies newest stable archive, public tree and manifest independently of legacy latest")
+        check(PublishedRelease.promotionFlag == "--latest=false","new UniMagic releases explicitly leave the legacy latest pointer alone")
+        try writeJSON(latest,to:root.appendingPathComponent("latest.json"))
+        refuses("publication refuses unexpected legacy latest pointer"){ _ = try PublishedRelease.latest() }
+        product.preserveLatestTag = nil; PublisherProduct.current = product
+        check(PublishedRelease.promotionFlag == "--latest","default products retain current promotion behavior")
         print("Release recursive-tree tests passed: \(assertions) assertions; real git, mocked API")
     }
     static func gh(_ args:[String])throws {
         let name:String
         if args.first=="api",args[1].hasSuffix("/releases/latest"){name="latest.json"}
+        else if args.first=="api",args[1].hasSuffix("/releases?per_page=12"){name="list.json"}
         else if args.first=="api",args[1].contains("/commits/"){name="commit.json"}
         else if args.first=="api",args[1].contains("/git/trees/"){name="tree.json"}
         else if args.prefix(2)==["release","download"]{name="manifest.json"}

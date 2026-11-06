@@ -71,7 +71,10 @@ final class UpdateController {
     var runningVersion: AppVersion { environment.runningVersion }
     var preference: UpdatePreference { state.preference }
     var lastUpdate: UpdateRecord? { state.lastUpdate }
-    var canGoBack: Bool { state.lastUpdate.map { environment.canGoBack($0.receipt) } ?? false }
+    var canGoBack: Bool {
+        guard availability != .blocked(.maintainerCopy) else { return false }
+        return state.lastUpdate.map { environment.canGoBack($0.receipt) } ?? false
+    }
     var now: Date { environment.now() }
 
     init(environment: Environment) {
@@ -145,7 +148,9 @@ final class UpdateController {
 
     /// Brings back the copy the last update replaced and turns automatic updates off.
     func goBack() -> UpdateFailure? {
+        guard availability != .blocked(.maintainerCopy) else { return .cannotGoBack("this copy cannot replace itself") }
         guard let record = state.lastUpdate else { return .cannotGoBack("no earlier copy is recorded") }
+        guard canGoBack else { return .cannotGoBack("no earlier copy is available") }
         guard environment.saveBeforeQuit() else { return .historyNotSaved }
         do { try environment.goBack(record.receipt) }
         catch { return error as? UpdateFailure ?? .cannotGoBack(error.localizedDescription) }
@@ -164,6 +169,7 @@ final class UpdateController {
     }
 
     private func install(_ staged: StagedUpdate) -> UpdateFailure? {
+        guard case .available = availability else { return .installFailed("this copy cannot replace itself") }
         guard environment.saveBeforeQuit() else { return .historyNotSaved }
         let receipt: URL
         do { receipt = try environment.install(staged.app, environment.support.appendingPathComponent("receipts")) }

@@ -2,7 +2,9 @@
 
 A Unicode picker that learns your words. Find a character, browse a category, teach an alias, then paste the exact Unicode string. It works offline.
 
-UniMagic includes a native Mac menu-bar app, an optional Tinycast command using the same Mac library, and a standalone iPhone app with a searchable keyboard. The Mac app opens with **Control–Command–Space**; Return pastes, Command–Return reverses Keep open for one pick, and Shift–Command–C copies. Glyph details expose encodings, variants, related characters and learned words.
+On Mac, the standalone menu-bar app and the optional Tinycast command run the same picker. Both use Tinycast’s palette renderer, with the same grouped grid, category dropdown, glyph actions, details and learned words. The standalone app includes its own single-command host. You can use it on a Mac without Tinycast installed.
+
+Press **Control–Command–Space** to open the picker. Press it again immediately to dismiss. Navigate to an emoji with skin tones and the same shortcut opens its tone choices. Arrow keys move the selection while the search field is empty. Scroll past the last visible row to load more automatically. **Return** inserts the selection, **Command–Return** inserts and keeps the picker open, and **Command–K** opens its actions.
 
 On iPhone, drag to browse a few rows or flick to coast through long categories. Hold a glyph for details, then go back to its place in the browser.
 
@@ -10,18 +12,21 @@ On iPhone, drag to browse a few rows or flick to coast through long categories. 
 
 Download the Apple Silicon Mac app from [Releases](https://github.com/clozach/UniMagic/releases). Current direct downloads are development-certificate signed, not Developer ID notarized; macOS may require an explicit security allowance. No App Store/TestFlight distribution is offered yet. The iPhone build uses your own Apple development signing and a paired Mac; an app cannot install its own iOS updates.
 
+**Version 1.0.4 and later require macOS 26+.** If you already use 1.0.3 on a compatible Mac, download the new app once from Releases. Its opt-in updater follows subsequent compatible releases. Macs running macOS 14–15 stay on [1.0.3](https://github.com/clozach/UniMagic/releases/tag/v1.0.3). GitHub’s Latest badge stays on that legacy release because its updater cannot check operating-system requirements. The newer public releases appear in the release list.
+
+To use the integrated picker, open UniMagic’s menu-bar **Settings**, choose **Categories & controls → Install optional Tinycast command**, then import the revealed folder from **Tinycast Settings → Extensions**. In Tinycast, search for **Unimagic**. For direct invocation, assign Control–Command–Space to that command in Tinycast. Use **Open UniMagic** in the app’s menu to try its standalone window alongside the integrated picker.
+
 Settings contains category visibility, a small installed version/build, and explicit update consent. Automatic feature updates start off. On iPhone the switch says **Install updates through my paired Mac**. Turning it off preserves that release; re-signing the same frozen release is separate maintenance and still depends on available Apple signing access. Updates never use keyboard Full Access.
 
 ## Build from source
 
-Requirements: macOS, Xcode command-line tools, Node **22.21.1**, pnpm, and XcodeGen for iOS. The Mac build bundles that pinned runtime and its full license; installed users do not need Node. Set `UNIMAGIC_NODE` to that executable if your shell uses another Node version.
+The shared Mac picker uses the macOS 26 SDK and runs on macOS 26 or later. Building it requires Xcode, XcodeGen, Git, Node **22.21.1** and pnpm. The build fetches a pinned public Tinycast revision for the dedicated picker host. The Mac build bundles that pinned runtime and its full license; installed users do not need Node. Set `UNIMAGIC_NODE` to that executable if your shell uses another Node version.
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm gen
 pnpm test
 pnpm typecheck
-pnpm run build:tinycast
 node macos/build.mjs
 ```
 
@@ -37,4 +42,4 @@ Paired-Mac installation takes preservation snapshots and verifies installed iden
 
 ## Licenses
 
-Original code is [MIT](LICENSE). Unicode data, inherited curation and bundled dependencies retain their [third-party notices](THIRD_PARTY_NOTICES.md). The optional copied Tinycast folder carries its own complete notices and licenses too. Categories, keywords and character coverage are preserved; the copied UniChar category-icon font is replaced with system artwork.
+UniMagic’s own picker command, controller, and release tools use the [MIT license](LICENSE). The bundled PickerHost process and its modifications use [AGPL-3.0-or-later](macos/picker-host/LICENSE). Its exact [Tinycast revision](macos/picker-host/TINYCAST_REVISION), [source modifications](macos/picker-host) and [build script](macos/build-picker-host.mjs) are public. Unicode data, inherited curation and bundled dependencies retain their [third-party notices](THIRD_PARTY_NOTICES.md). The optional copied Tinycast folder carries its own complete notices and licenses too. Categories, keywords and character coverage are preserved; the copied UniChar category-icon font is replaced with system artwork.

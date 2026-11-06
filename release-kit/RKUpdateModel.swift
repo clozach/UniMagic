@@ -45,6 +45,7 @@ struct UpdateRelease: Equatable {
 
 /// Why this copy cannot replace itself. Each has its own sentence in UpdateStatus.
 enum UpdateBlocker: Equatable {
+    case maintainerCopy
     case builtFromSource
     case unsigned
     case movedByMacOS
@@ -56,7 +57,8 @@ enum UpdateAvailability: Equatable {
     case blocked(UpdateBlocker)
 
     /// Only a release build names a feed; only a certificate-signed copy can be matched by a later one.
-    static func resolve(bundle: URL, feedText: String?, isAdHoc: () -> Bool, folderWritable: () -> Bool) -> UpdateAvailability {
+    static func resolve(bundle: URL, feedText: String?, isAdHoc: () -> Bool, folderWritable: () -> Bool, preservesMaintainerBuild: Bool = false) -> UpdateAvailability {
+        if preservesMaintainerBuild { return .blocked(.maintainerCopy) }
         guard let feedText, let feed = URL(string: feedText), feed.scheme == "https" || feed.isFileURL else {
             return .blocked(.builtFromSource)
         }
@@ -116,8 +118,41 @@ struct UpdateRecord: Codable, Equatable {
 enum UpdateFeed {
     static let archiveLimit = 100 * 1024 * 1024
 
+    static let listQuery = "?per_page=12"
+    static let metadataLimit = 1_048_576
+
+    /// Select one bounded page by numeric version. Drafts, prereleases, and releases for
+    /// other platforms do not belong to this feed. Fail closed on an incomplete archive.
+    static func stableRelease(_ data: Data, archiveTemplate: String, repository: String) throws -> [String: Any] {
+        guard data.count <= metadataLimit,
+              let rows = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+              rows.count <= 12 else { throw UpdateFailure.feedUnreadable("invalid stable release list") }
+        var selected: (version: AppVersion, row: [String: Any])?
+        for row in rows {
+            guard row["draft"] as? Bool == false, row["prerelease"] as? Bool == false,
+                  let tag = row["tag_name"] as? String,
+                  tag.range(of: #"^v(0|[1-9][0-9]{0,7})\.(0|[1-9][0-9]{0,7})\.(0|[1-9][0-9]{0,7})$"#,
+                            options: .regularExpression) != nil, let version = AppVersion(tag),
+                  let assets = row["assets"] as? [[String: Any]] else { continue }
+            let name = archiveTemplate.replacingOccurrences(of: "{version}", with: String(tag.dropFirst()))
+            let matches = assets.filter { $0["name"] as? String == name }
+            guard !matches.isEmpty else { continue }
+            guard matches.count == 1, let asset = matches.first,
+                  asset["state"] as? String == "uploaded",
+                  let size = asset["size"] as? Int, (1...archiveLimit).contains(size),
+                  asset["browser_download_url"] as? String == "https://github.com/\(repository)/releases/download/\(tag)/\(name)"
+            else { throw UpdateFailure.feedUnreadable("invalid or ambiguous stable app archive") }
+            if selected == nil || selected!.version < version {
+                // Preserve the full asset list for the publisher's manifest and archive readback.
+                selected = (version, row)
+            }
+        }
+        guard let selected else { throw UpdateFailure.noArchive }
+        return selected.row
+    }
+
     /// Reads GitHub's "latest release" answer. A local feed (tests) may name local archives.
-    static func release(from data: Data, allowLocal: Bool = false, assetPrefix: String = "ClipEdge") -> Result<UpdateRelease, UpdateFailure> {
+    static func release(from data: Data, allowLocal: Bool = false, assetPrefix: String = "ClipEdge", exactName: String? = nil) -> Result<UpdateRelease, UpdateFailure> {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return .failure(.feedUnreadable("the release list was not readable"))
         }
@@ -130,7 +165,7 @@ enum UpdateFeed {
         }
         let assets = object["assets"] as? [[String: Any]] ?? []
         for asset in assets {
-            guard let name = asset["name"] as? String, name.hasPrefix(assetPrefix), name.hasSuffix(".zip"),
+            guard let name = asset["name"] as? String, name.hasPrefix(assetPrefix), name.hasSuffix(".zip"), exactName == nil || name == exactName,
                   let archive = link(asset["browser_download_url"]) else { continue }
             let bytes = asset["size"] as? Int ?? 0
             guard bytes <= archiveLimit else { return .failure(.archiveTooLarge(bytes)) }

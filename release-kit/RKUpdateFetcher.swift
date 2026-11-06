@@ -14,12 +14,21 @@ enum UpdateFetcher {
         return URLSession(configuration: configuration)
     }
 
-    static func release(feed: URL, runningVersion: String, session: URLSession, productName: String = "ClipEdge") async throws -> UpdateRelease {
+    static func release(feed: URL, runningVersion: String, session: URLSession, productName: String = "ClipEdge", stableArchiveTemplate: String? = nil) async throws -> UpdateRelease {
         let file = FileManager.default.temporaryDirectory.appendingPathComponent("release-feed-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: file) }
-        let response = try await answer { try await BoundedDownload.fetch(request(feed, runningVersion, productName), using: session, to: file, limit: 1_048_576) }
+        let response = try await answer { try await BoundedDownload.fetch(request(feed, runningVersion, productName), using: session, to: file, limit: UpdateFeed.metadataLimit) }
         let data = try Data(contentsOf: file)
         try expectSuccess(response)
+        if let template = stableArchiveTemplate {
+            let path = feed.path.split(separator: "/")
+            guard feed.scheme == "https", feed.host == "api.github.com", path.count == 4,
+                  path[0] == "repos", path[3] == "releases" else { throw UpdateFailure.feedUnreadable("unexpected release-list address") }
+            let row = try UpdateFeed.stableRelease(data, archiveTemplate: template, repository: "\(path[1])/\(path[2])")
+            let tag = row["tag_name"] as! String
+            let exact = template.replacingOccurrences(of: "{version}", with: String(tag.dropFirst()))
+            return try UpdateFeed.release(from: JSONSerialization.data(withJSONObject: row), assetPrefix: productName, exactName: exact).get()
+        }
         return try UpdateFeed.release(from: data, allowLocal: feed.isFileURL, assetPrefix: productName).get()
     }
 

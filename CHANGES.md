@@ -1,5 +1,11 @@
 # UniMagic releases
 
+## 1.0.4
+
+- The standalone Mac app and the integrated Tinycast command run the same Unicode palette. The Mac app includes a dedicated picker host and can run independently.
+- Restore the category dropdown, on-demand details, automatic paging and keyboard navigation. An immediate repeat of Control–Command–Space closes the picker. After choosing an eligible emoji it opens skin tones.
+- The shared Mac picker requires macOS 26+. Upgrade from 1.0.3 with one manual download, then opt into automatic updates if desired. Older Macs retain 1.0.3.
+
 ## 1.0.3
 
 - The iPhone picker keeps its momentum across glyph pages during fast flicks. Slow drags keep their precision.

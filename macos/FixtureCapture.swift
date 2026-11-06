@@ -1,26 +1,12 @@
 import AppKit
 
-/// Synthetic capture harness is isolated from the production host lifecycle.
-@MainActor func configureFixtureCapture(window: NSWindow, model: PickerModel) {
+@MainActor func captureSettingsFixture(_ window: NSWindow) {
   let environment = ProcessInfo.processInfo.environment
-  guard environment["UNIMAGIC_FIXTURE"] == "1", let path = environment["UNIMAGIC_CAPTURE"] else {
-    return
-  }
-  if environment["UNIMAGIC_CAPTURE_SETTINGS"] == "1" { model.showingSettings = true }
-  if let query = environment["UNIMAGIC_CAPTURE_QUERY"] { model.query = query }
+  guard environment["UNIMAGIC_FIXTURE"] == "1", let path = environment["UNIMAGIC_CAPTURE"] else { return }
   if let appearance = environment["UNIMAGIC_APPEARANCE"] {
     NSApp.appearance = NSAppearance(named: appearance == "dark" ? .darkAqua : .aqua)
   }
-  DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-    if environment["UNIMAGIC_CAPTURE_DETAIL"] == "1" {
-      model.inspect()
-      DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-        captureFixture(window: window, path: path)
-      }
-    } else {
-      captureFixture(window: window, path: path)
-    }
-  }
+  DispatchQueue.main.asyncAfter(deadline: .now() + 3) { captureFixture(window: window, path: path) }
 }
 @MainActor private func captureFixture(window: NSWindow, path: String) {
   guard let view = (NSApp.keyWindow ?? window).contentView,

@@ -8,8 +8,8 @@ import SwiftUI
   let configuration = ReleaseConfiguration(
     productName: "UniMagic", bundleIdentifier: "com.clozach.unimagic.mac",
     archiveBundleName: "UniMagic.app", infoPrefix: "UniMagic", supportFolder: "UniMagic/Updates",
-    releasePage: URL(string: "https://github.com/clozach/UniMagic/releases/latest")!,
-    publisherToolSuffix: "/tools/publisher.sh")
+    releasePage: URL(string: "https://github.com/clozach/UniMagic/releases")!,
+    publisherToolSuffix: "/tools/publisher.sh", stableArchiveTemplate: "UniMagic-{version}-macOS-arm64.zip")
   init() {
     let fixture = ProcessInfo.processInfo.environment["UNIMAGIC_FIXTURE"] == "1"
     let productionSupport = FileManager.default.urls(
@@ -26,10 +26,10 @@ import SwiftUI
       environment: .live(
         bundle: .main, support: support, configuration: configuration,
         isBusy: {
-          DesktopBridge.hasPendingRequests
+          !PickerProcess.safeToUpdate || DesktopBridge.hasPendingRequests
             || NSApp.windows.contains { $0.isVisible && $0.isKeyWindow }
         },
-        saveBeforeQuit: { !DesktopBridge.hasPendingRequests && !PhoneUpdateService.isRunning },
+        saveBeforeQuit: { PickerProcess.safeToUpdate && !DesktopBridge.hasPendingRequests && !PhoneUpdateService.isRunning },
         quit: { NSApp.terminate(nil) }))
     publisher = PublishController(
       environment: fixture

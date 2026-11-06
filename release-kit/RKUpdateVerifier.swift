@@ -41,6 +41,24 @@ enum UpdateVerifier {
         }
     }
 
+    /// Enforce the signed bundle's deployment floor before staging and again before installation.
+    static func requireSupportedMac(_ url: URL, on system: OperatingSystemVersion = ProcessInfo.processInfo.operatingSystemVersion) throws {
+        let plist = url.appendingPathComponent("Contents/Info.plist")
+        guard let data = try? Data(contentsOf: plist),
+              let info = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+              let declared = info["LSMinimumSystemVersion"] as? String else {
+            throw UpdateFailure.installFailed("The downloaded app has no declared macOS minimum.")
+        }
+        let arch = (info["LSMinimumSystemVersionByArchitecture"] as? [String: String])?["arm64"]
+        let running = AppVersion("\(system.majorVersion).\(system.minorVersion).\(system.patchVersion)")!
+        for value in [declared, arch].compactMap({ $0 }) {
+            guard value.range(of: #"^[0-9]+(\.[0-9]+){0,2}$"#, options: .regularExpression) != nil,
+                  let required = AppVersion(value), running >= required else {
+                throw UpdateFailure.installFailed("This download requires macOS \(value). Your running copy is still installed.")
+            }
+        }
+    }
+
     static func version(ofAppAt url: URL) -> AppVersion? {
         let plist = url.appendingPathComponent("Contents/Info.plist")
         guard let data = try? Data(contentsOf: plist),

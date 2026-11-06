@@ -104,7 +104,7 @@ extension Candidate {
         guard unchanged else {
             throw PublisherError("Another release or source advance appeared. This candidate remains a draft and was not offered as an automatic update.")
         }
-        try Command.run("gh", ["release", "edit", tag, "--repo", PublishedRelease.repository, "--draft=false", "--latest",
+        try Command.run("gh", ["release", "edit", tag, "--repo", PublishedRelease.repository, "--draft=false", PublishedRelease.promotionFlag,
                                 "--title", "\(PublisherProduct.current.name) \(version)", "--notes-file", folder.appendingPathComponent("notes.md").path])
         Telemetry.begin("confirm")
         let confirmed: PublishedRelease

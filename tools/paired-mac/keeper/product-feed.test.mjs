@@ -25,3 +25,19 @@ test('fresh off before install blocks feature mutation and writes error status',
  const f=fixture(true);let reads=0;f.io.readConsent=async()=>({kind:'read',policy:{...f.policy,automaticUpdates:++reads<3}});
  assert.equal((await checkProductUpdates(f.product,{trustedMacApp:'trusted',io:f.io})).kind,'error');assert.ok(!f.effects.includes('install'));assert.ok(f.effects.includes('error'));
 });
+
+test('the paired Mac reads stable releases independently of the legacy Latest tag', async()=>{
+ const {githubRelease,officialStableRelease}=await import('./product-feed.mjs');
+ function row(version){
+  const name=`UniMagic-${version}-macOS-arm64.zip`,url=`https://github.com/clozach/UniMagic/releases/download/v${version}/${name}`;
+  return {tag_name:'v'+version,draft:false,prerelease:false,assets:[{name,state:'uploaded',size:123,browser_download_url:url}]};
+ }
+ const fixture=[row('1.0.3'), {...row('1.5.0'),draft:true},row('1.0.10'), {...row('2.0.0'),prerelease:true},row('1.0.9'),{...row('3.0.0'),assets:[]}];
+ const result=await githubRelease({fetch:async url=>{assert.equal(url,'https://api.github.com/repos/clozach/UniMagic/releases?per_page=12');return Response.json(fixture)}});
+ assert.equal(result.version,'1.0.10');
+ const corrupt=row('1.1.0');corrupt.assets[0].browser_download_url='https://untrusted.invalid/a.zip';
+ assert.throws(()=>officialStableRelease([corrupt]),/Invalid/);
+ assert.throws(()=>officialStableRelease(Array(13).fill(row('1.0.1'))),/oversized/);
+ assert.throws(()=>officialStableRelease([{...row('1.0.4'),prerelease:true}]),/No stable/);
+ await assert.rejects(githubRelease({fetch:async()=>new Response(' '.repeat(1024*1024+1))}),/size limit/);
+});

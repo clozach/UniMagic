@@ -1,5 +1,7 @@
 import Foundation
 
+enum MaintainerUpdatePolicy { case allowPublicReleases, preserveBuild }
+
 /// Product identity and trusted maintainer capability supplied by each host.
 struct ReleaseConfiguration {
     var productName: String
@@ -11,10 +13,19 @@ struct ReleaseConfiguration {
     /// Exact helper suffix permitted by this product's local maintainer build.
     var publisherToolSuffix: String
 
+    /// Set only for clients reading an array of stable GitHub releases.
+    var stableArchiveTemplate: String? = nil
+    var maintainerUpdatePolicy: MaintainerUpdatePolicy = .allowPublicReleases
+
+    /// This build identity survives a missing publisher helper and legacy feed metadata.
+    func preservesMaintainerBuild(info: [String: Any]) -> Bool {
+        maintainerUpdatePolicy == .preserveBuild && info[infoPrefix + "PublisherEnabled"] as? Bool == true
+    }
+
     static let clipEdge = ReleaseConfiguration(productName: "ClipEdge", bundleIdentifier: "local.codex.ClipEdge",
         archiveBundleName: "ClipEdge.app", infoPrefix: "ClipEdge", supportFolder: "ClipEdge/Updates",
         releasePage: URL(string: "https://github.com/clozach/ClipEdge/releases/latest")!,
-        publisherToolSuffix: "/projects/clipedge/src/tools/publisher.sh")
+        publisherToolSuffix: "/projects/clipedge/src/tools/publisher.sh", maintainerUpdatePolicy: .preserveBuild)
 }
 
 struct PublishCapability: Equatable {

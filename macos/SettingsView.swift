@@ -2,7 +2,8 @@ import AppKit
 import SwiftUI
 
 struct SettingsView: View {
-  @ObservedObject var model: PickerModel
+  @ObservedObject var model: SettingsModel
+  let dismiss: () -> Void
   @State private var filter = ""
   @State private var selectedTab =
     ProcessInfo.processInfo.environment["UNIMAGIC_CAPTURE_SETTINGS_CATEGORIES"] == "1"
@@ -12,7 +13,7 @@ struct SettingsView: View {
       HStack {
         Text("UniMagic Settings").font(.title2)
         Spacer()
-        Button("Done") { model.showingSettings = false }.keyboardShortcut(.cancelAction)
+        Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
       }
       HStack {
         tab("Categories & controls", "categories")
@@ -35,9 +36,10 @@ struct SettingsView: View {
                 }
               }
             }
+            if !model.message.isEmpty { Text(model.message).font(.caption) }
             Button("Install optional Tinycast command…") { installTinycast() }
             Text(
-              "⌃⌘Space opens UniMagic. Return inserts; ⌘Return reverses Keep open once; ⇧⌘C copies. ⌃H/J/K/L moves through glyphs; Tab opens details; Escape closes details, then the picker."
+              "⌃⌘Space opens the picker. Return inserts the selected glyph. Press ⌘K for its actions, including copying, details and skin tones."
             )
             .font(.caption).foregroundStyle(.secondary)
           }.padding(12)

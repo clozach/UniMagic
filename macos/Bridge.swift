@@ -1,12 +1,5 @@
 import Foundation
 
-struct Glyph: Codable, Identifiable, Hashable {
-  let id: String
-  let hexseq: String
-  let symbol: String
-  let display: String
-  let name: String
-}
 struct Category: Codable, Identifiable {
   let id: String
   let title: String
@@ -14,36 +7,6 @@ struct Category: Codable, Identifiable {
   let icon: String?
   let systemIcon: String?
 }
-struct GlyphPage: Codable {
-  let records: [Glyph]
-  let total: Int
-  let nextOffset: Int?
-  let cursor: String?
-}
-struct ValueRow: Codable, Identifiable {
-  var id: String { label + value }
-  let label: String
-  let value: String
-}
-struct Alias: Codable, Identifiable {
-  var id: String { term }
-  let term: String
-  let type: String
-}
-struct GlyphDetail: Codable {
-  let record: Glyph
-  let values: [ValueRow]
-  let notes: [String]
-  let components: [String]
-  let classification: String
-  let aliases: [Alias]
-  let keywords: [String]
-  let variants: [String]
-  let twins: [Glyph]
-  let related: [Glyph]
-  let contexts: [Category]
-}
-
 /// One serial pipe preserves request ordering and isolates the desktop runtime from UI work.
 final class DesktopBridge: @unchecked Sendable {
   private static let activityLock = NSLock()

@@ -23,7 +23,7 @@ if (!identity || identity === '-') throw Error('A certificate-backed signing ide
 const fingerprintReply = text('/bin/bash', ['tools/publisher.sh', 'identity']);
 const fingerprint = JSON.parse(fingerprintReply.split('\n').at(-1)).fingerprint;
 if (!/^[a-f0-9]{64}$/.test(fingerprint)) throw Error('Content identity is unavailable.');
-const feed = process.env.RELEASE_KIT_UPDATE_FEED ?? 'https://api.github.com/repos/clozach/UniMagic/releases/latest';
+const feed = process.env.RELEASE_KIT_UPDATE_FEED ?? 'https://api.github.com/repos/clozach/UniMagic/releases?per_page=12';
 
 run('pnpm', ['run', 'build:tinycast']);
 const payloadFolder = resolve('.build/ios-payload');

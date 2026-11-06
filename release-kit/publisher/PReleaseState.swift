@@ -2,7 +2,9 @@ import Foundation
 
 struct PublishedRelease {
     static var repository: String { PublisherProduct.current.repository }
-    static var feed: String { "https://api.github.com/repos/\(repository)/releases/latest" }
+    static var feedPath: String { "repos/\(repository)/releases" + (PublisherProduct.current.preserveLatestTag == nil ? "/latest" : UpdateFeed.listQuery) }
+    static var feed: String { "https://api.github.com/" + feedPath }
+    static var promotionFlag: String { PublisherProduct.current.preserveLatestTag == nil ? "--latest" : "--latest=false" }
     let version: String
     let tag: String
     let fingerprint: String
@@ -14,10 +16,18 @@ struct PublishedRelease {
     let archiveName: String
 
     static func latest() throws -> PublishedRelease {
-        let answer = try Command.attempt("gh", ["api", "repos/\(repository)/releases/latest"], quiet: true)
+        let product = PublisherProduct.current
+        if let protected = product.preserveLatestTag {
+            let legacy = try jsonObject(Command.run("gh", ["api", "repos/\(repository)/releases/latest"], quiet: true))
+            guard legacy["tag_name"] as? String == protected, legacy["draft"] as? Bool == false,
+                  legacy["prerelease"] as? Bool == false else {
+                throw PublisherError("The protected legacy release has changed. Check the public Latest tag before publishing.")
+            }
+        }
+        let answer = try Command.attempt("gh", ["api", feedPath], quiet: true, outputLimit: UpdateFeed.metadataLimit)
         if answer.status != 0 {
             let error = (try? jsonObject(answer.output)) ?? [:]
-            guard PublisherProduct.current.allowInitialRelease, error["status"] as? String == "404" || error["status"] as? Int == 404 else {
+            guard product.preserveLatestTag == nil, product.allowInitialRelease, error["status"] as? String == "404" || error["status"] as? Int == 404 else {
                 throw PublisherError("The latest public release could not be verified.")
             }
             let head = try jsonObject(Command.run("gh", ["api", "repos/\(repository)/commits/main"], quiet: true))
@@ -28,7 +38,11 @@ struct PublishedRelease {
             return PublishedRelease(version: "0.0.0", tag: "", fingerprint: String(repeating: "0", count: 64), commit: commit,
                 tree: tree, baseline: "unreleased:" + commit, page: "https://github.com/\(repository)", archiveSHA256: nil, archiveName: "")
         }
-        let release = try jsonObject(answer.output)
+        let release: [String: Any]
+        if product.preserveLatestTag != nil {
+            let template = URL(fileURLWithPath: product.archiveTemplate).lastPathComponent
+            release = try UpdateFeed.stableRelease(answer.output, archiveTemplate: template, repository: repository)
+        } else { release = try jsonObject(answer.output) }
         guard let tag = release["tag_name"] as? String, safeIdentifier(tag),
               let id = release["id"] as? Int,
               let page = release["html_url"] as? String,
